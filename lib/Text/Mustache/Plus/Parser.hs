@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Mustache.Parser
+-- Module      :  Text.Mustache.Plus.Parser
 -- Copyright   :  © 2016 Stack Builders
 -- License     :  BSD 3 clause
 --
@@ -8,10 +8,10 @@
 -- Portability :  portable
 --
 -- Megaparsec parser for Mustache templates. You don't usually need to
--- import the module, because "Text.Mustache" re-exports everything you may
+-- import the module, because "Text.Mustache.Plus" re-exports everything you may
 -- need, import that module instead.
 
-module Text.Mustache.Parser
+module Text.Mustache.Plus.Parser
   ( parseMustache )
 where
 
@@ -23,7 +23,7 @@ import Data.List (intercalate)
 import Data.Maybe (catMaybes)
 import Data.Text.Lazy (Text)
 import Text.Megaparsec
-import Text.Mustache.Type
+import Text.Mustache.Plus.Type
 import qualified Data.Text             as T
 import qualified Text.Megaparsec.Lexer as L
 

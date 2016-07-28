@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Mustache.Compile
+-- Module      :  Text.Mustache.Plus.Compile
 -- Copyright   :  © 2016 Stack Builders
 -- License     :  BSD 3 clause
 --
@@ -8,12 +8,12 @@
 -- Portability :  portable
 --
 -- Mustache 'Template' creation from file or a 'Text' value. You don't
--- usually need to import the module, because "Text.Mustache" re-exports
+-- usually need to import the module, because "Text.Mustache.Plus" re-exports
 -- everything you may need, import that module instead.
 
 {-# LANGUAGE CPP #-}
 
-module Text.Mustache.Compile
+module Text.Mustache.Plus.Compile
   ( compileMustacheDir
   , compileMustacheFile
   , compileMustacheText )
@@ -24,8 +24,8 @@ import Control.Monad.Except
 import Data.Text.Lazy (Text)
 import System.Directory
 import Text.Megaparsec
-import Text.Mustache.Parser
-import Text.Mustache.Type
+import Text.Mustache.Plus.Parser
+import Text.Mustache.Plus.Type
 import qualified Data.Map          as M
 import qualified Data.Text         as T
 import qualified Data.Text.Lazy.IO as TL

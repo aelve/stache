@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module Text.Mustache.Compile.THSpec
+module Text.Mustache.Plus.Compile.THSpec
   ( main
   , spec )
 where
@@ -11,9 +11,9 @@ import Test.Hspec
 
 #if MIN_VERSION_template_haskell(2,11,0)
 import Data.Semigroup ((<>))
-import Text.Mustache.Type
-import qualified Data.Map                 as M
-import qualified Text.Mustache.Compile.TH as TH
+import Text.Mustache.Plus.Type
+import qualified Data.Map as M
+import qualified Text.Mustache.Plus.Compile.TH as TH
 #endif
 
 main :: IO ()

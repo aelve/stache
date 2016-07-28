@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Mustache
+-- Module      :  Text.Mustache.Plus
 -- Copyright   :  © 2016 Stack Builders
 -- License     :  BSD 3 clause
 --
@@ -27,7 +27,7 @@
 -- end user.
 --
 -- Template Haskell helpers for compilation of templates at compile time are
--- available in the "Text.Mustache.Compile.TH" module. The helpers are
+-- available in the "Text.Mustache.Plus.Compile.TH" module. The helpers are
 -- currently available only for GHC 8 users though.
 --
 -- One feature that is not currently supported is lambdas. The feature is
@@ -45,7 +45,7 @@
 -- > import Data.Aeson
 -- > import Data.Text
 -- > import Text.Megaparsec
--- > import Text.Mustache
+-- > import Text.Mustache.Plus
 -- > import qualified Data.Text.Lazy.IO as TIO
 -- >
 -- > main :: IO ()
@@ -73,7 +73,7 @@
 --     * The manual: <https://mustache.github.io/mustache.5.html>
 --     * The specification: <https://github.com/mustache/spec>
 
-module Text.Mustache
+module Text.Mustache.Plus
   ( -- * Types
     Template (..)
   , Node (..)
@@ -88,6 +88,6 @@ module Text.Mustache
   , renderMustache )
 where
 
-import Text.Mustache.Compile
-import Text.Mustache.Render
-import Text.Mustache.Type
+import Text.Mustache.Plus.Compile
+import Text.Mustache.Plus.Render
+import Text.Mustache.Plus.Type

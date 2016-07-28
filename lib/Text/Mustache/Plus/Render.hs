@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Mustache.Render
+-- Module      :  Text.Mustache.Plus.Render
 -- Copyright   :  © 2016 Stack Builders
 -- License     :  BSD 3 clause
 --
@@ -8,13 +8,13 @@
 -- Portability :  portable
 --
 -- Functions for rendering Mustache templates. You don't usually need to
--- import the module, because "Text.Mustache" re-exports everything you may
+-- import the module, because "Text.Mustache.Plus" re-exports everything you may
 -- need, import that module instead.
 
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Text.Mustache.Render
+module Text.Mustache.Plus.Render
   ( renderMustache )
 where
 
@@ -27,7 +27,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Text.Megaparsec.Pos (Pos, unPos)
-import Text.Mustache.Type
+import Text.Mustache.Plus.Type
 import qualified Data.ByteString.Lazy   as B
 import qualified Data.HashMap.Strict    as H
 import qualified Data.List.NonEmpty     as NE

@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Mustache.Compile.TH
+-- Module      :  Text.Mustache.Plus.Compile.TH
 -- Copyright   :  © 2016 Stack Builders
 -- License     :  BSD 3 clause
 --
@@ -8,7 +8,7 @@
 -- Portability :  portable
 --
 -- Template Haskell helpers to compile Mustache templates at compile time.
--- This module is not imported as part of "Text.Mustache", so you need to
+-- This module is not imported as part of "Text.Mustache.Plus", so you need to
 -- import it yourself. Qualified import is recommended, but not necessary.
 --
 -- At the moment, functions in this module only work with GHC 8 (they
@@ -18,7 +18,7 @@
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Text.Mustache.Compile.TH
+module Text.Mustache.Plus.Compile.TH
   ( compileMustacheDir
   , compileMustacheFile
   , compileMustacheText )
@@ -30,9 +30,9 @@ import Data.Typeable (cast)
 import Language.Haskell.TH hiding (Dec)
 import Language.Haskell.TH.Syntax (lift)
 import Text.Megaparsec hiding (try)
-import Text.Mustache.Type
+import Text.Mustache.Plus.Type
 import qualified Data.Text             as T
-import qualified Text.Mustache.Compile as C
+import qualified Text.Mustache.Plus.Compile as C
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative

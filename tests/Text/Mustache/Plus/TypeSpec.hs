@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Text.Mustache.TypeSpec
+module Text.Mustache.Plus.TypeSpec
   ( main
   , spec )
 where
 
 import Data.Semigroup ((<>))
 import Test.Hspec
-import Text.Mustache.Type
+import Text.Mustache.Plus.Type
 import qualified Data.Map as M
 
 main :: IO ()

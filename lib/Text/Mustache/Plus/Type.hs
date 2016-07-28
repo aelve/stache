@@ -1,5 +1,5 @@
 -- |
--- Module      :  Text.Mustache.Type
+-- Module      :  Text.Mustache.Plus.Type
 -- Copyright   :  © 2016 Stack Buliders
 -- License     :  BSD 3 clause
 --
@@ -8,14 +8,14 @@
 -- Portability :  portable
 --
 -- Types used by the package. You don't usually need to import the module,
--- because "Text.Mustache" re-exports everything you may need, import that
+-- because "Text.Mustache.Plus" re-exports everything you may need, import that
 -- module instead.
 
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Text.Mustache.Type
+module Text.Mustache.Plus.Type
   ( Template (..)
   , Node (..)
   , Key (..)

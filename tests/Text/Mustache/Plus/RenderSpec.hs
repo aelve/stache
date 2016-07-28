@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Text.Mustache.RenderSpec
+module Text.Mustache.Plus.RenderSpec
   ( main
   , spec )
 where
@@ -10,8 +10,8 @@ import Data.Aeson (object, KeyValue (..), Value (..))
 import Data.Text (Text)
 import Test.Hspec
 import Text.Megaparsec
-import Text.Mustache.Render
-import Text.Mustache.Type
+import Text.Mustache.Plus.Render
+import Text.Mustache.Plus.Type
 import qualified Data.Map as M
 
 #if !MIN_VERSION_base(4,8,0)

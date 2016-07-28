@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Text.Mustache.ParserSpec
+module Text.Mustache.Plus.ParserSpec
   ( main
   , spec )
 where
@@ -10,8 +10,8 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.Megaparsec
-import Text.Mustache.Parser
-import Text.Mustache.Type
+import Text.Mustache.Plus.Parser
+import Text.Mustache.Plus.Type
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set           as S
 

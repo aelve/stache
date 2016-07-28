@@ -13,8 +13,8 @@ import Data.Text (Text)
 import Data.Yaml
 import Test.Hspec
 import Text.Megaparsec
-import Text.Mustache
-import Text.Mustache.Parser
+import Text.Mustache.Plus
+import Text.Mustache.Plus.Parser
 import qualified Data.Map       as M
 import qualified Data.Text      as T
 import qualified Data.Text.Lazy as TL

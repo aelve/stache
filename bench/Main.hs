@@ -9,10 +9,10 @@ import Criterion.Main
 import Data.Aeson
 import Data.Text (Text)
 import Text.Megaparsec
-import Text.Mustache.Compile
-import Text.Mustache.Parser
-import Text.Mustache.Render
-import Text.Mustache.Type
+import Text.Mustache.Plus.Compile
+import Text.Mustache.Plus.Parser
+import Text.Mustache.Plus.Render
+import Text.Mustache.Plus.Type
 import qualified Data.Text.Lazy.IO as T
 
 ----------------------------------------------------------------------------

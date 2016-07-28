@@ -1,0 +1,108 @@
+name:                 stache-plus
+version:              0.1.0.0
+license:              BSD3
+license-file:         LICENSE.md
+author:               Mark Karpov <markkarpov@openmailbox.org>,
+                      Artyom <yom@artyom.me>
+maintainer:           Artyom <yom@artyom.me>
+homepage:             https://github.com/aelve/stache-plus
+bug-reports:          https://github.com/aelve/stache-plus/issues
+category:             Text
+synopsis:             Mustache templates with some additions
+description:
+  Mustache templates with some additions.
+  .
+  Forked from <https://hackage.haskell.org/package/stache stache>.
+build-type:           Simple
+cabal-version:        >= 1.10
+tested-with:          GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.1
+extra-doc-files:
+  CHANGELOG.md
+data-files:
+  bench-data/*.mustache
+  specs/*.yml
+  templates/*.mustache
+
+source-repository head
+  type:               git
+  location:           https://github.com/aelve/stache-plus.git
+
+library
+  build-depends:      aeson            >= 0.11 && < 0.12
+                    , base             >= 4.7  && < 5
+                    , bytestring       >= 0.10 && < 0.11
+                    , containers       >= 0.5  && < 0.6
+                    , deepseq          >= 1.4  && < 1.5
+                    , directory        >= 1.2  && < 1.3
+                    , exceptions       >= 0.8  && < 0.9
+                    , filepath         >= 1.2  && < 1.5
+                    , megaparsec       >= 5.0  && < 6.0
+                    , mtl              >= 2.1  && < 3.0
+                    , template-haskell >= 2.10 && < 2.12
+                    , text             >= 1.2  && < 1.3
+                    , unordered-containers >= 0.2.5 && < 0.3
+                    , vector           >= 0.11 && < 0.12
+  if !impl(ghc >= 8.0)
+    build-depends:    semigroups       == 0.18.*
+  exposed-modules:    Text.Mustache.Plus
+                      Text.Mustache.Plus.Compile
+                      Text.Mustache.Plus.Compile.TH
+                      Text.Mustache.Plus.Parser
+                      Text.Mustache.Plus.Render
+                      Text.Mustache.Plus.Type
+  ghc-options:        -Wall -fno-warn-unused-do-bind
+                      -O2 -fsimpl-tick-factor=150
+  default-language:   Haskell2010
+  hs-source-dirs:     lib
+
+test-suite tests
+  main-is:            Spec.hs
+  hs-source-dirs:     tests
+  type:               exitcode-stdio-1.0
+  build-depends:      aeson
+                    , base
+                    , containers
+                    , hspec            >= 2.0  && < 3.0
+                    , hspec-megaparsec >= 0.2  && < 0.3
+                    , megaparsec
+                    , stache-plus
+                    , text
+  other-modules:      Text.Mustache.Plus.Compile.THSpec
+                      Text.Mustache.Plus.ParserSpec
+                      Text.Mustache.Plus.RenderSpec
+                      Text.Mustache.Plus.TypeSpec
+  if !impl(ghc >= 8.0)
+    build-depends:    semigroups
+  ghc-options:        -Wall -fno-warn-unused-do-bind
+  default-language:   Haskell2010
+
+test-suite mustache-spec
+  main-is:            Spec.hs
+  hs-source-dirs:     mustache-spec
+  type:               exitcode-stdio-1.0
+  build-depends:      aeson
+                    , base
+                    , bytestring
+                    , containers
+                    , file-embed
+                    , hspec            >= 2.0  && < 3.0
+                    , megaparsec
+                    , stache-plus
+                    , text
+                    , yaml             >= 0.8  && < 0.9
+  ghc-options:        -Wall -fno-warn-unused-do-bind
+  default-language:   Haskell2010
+
+benchmark bench
+  main-is:            Main.hs
+  hs-source-dirs:     bench
+  type:               exitcode-stdio-1.0
+  build-depends:      aeson
+                    , base
+                    , criterion        >= 0.6.2.1 && < 1.2
+                    , deepseq
+                    , megaparsec
+                    , stache-plus
+                    , text
+  ghc-options:        -O2 -Wall -fno-warn-unused-do-bind
+  default-language:   Haskell2010
