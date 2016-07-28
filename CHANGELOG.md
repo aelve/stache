@@ -1,11 +1,3 @@
-## Stache 0.1.2
+# 0.1
 
-* Fixed compilation of benchmarks with Megaparsec 5.0.1 and later.
-
-## Stache 0.1.1
-
-* Added benchmarks.
-
-## Stache 0.1.0
-
-* Initial release.
+Initial release (forked from [stache-0.1.2](http://hackage.haskell.org/package/stache-0.1.2), no changes yet).
