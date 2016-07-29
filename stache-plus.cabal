@@ -38,6 +38,7 @@ library
                     , filepath         >= 1.2  && < 1.5
                     , megaparsec       >= 5.0  && < 6.0
                     , mtl              >= 2.1  && < 3.0
+                    , scientific
                     , template-haskell >= 2.10 && < 2.12
                     , text             >= 1.2  && < 1.3
                     , unordered-containers >= 0.2.5 && < 0.3

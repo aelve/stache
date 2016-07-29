@@ -21,6 +21,7 @@ import Data.Maybe (catMaybes)
 import qualified Data.Text.Lazy as TL
 import Text.Megaparsec
 import Data.Aeson (Value(..))
+import Data.Scientific (Scientific)
 import Text.Mustache.Plus.Type
 import qualified Data.Text             as T
 import qualified Text.Megaparsec.Lexer as L
@@ -110,12 +111,13 @@ pPartial f = do
     args <- many $ do
       argName <- pVarName
       char '='
-      -- TODO: allow more things than just strings
+      -- TODO: allow more things than just strings and numbers
       argVal <- pArg
       return (argName, argVal)
     return (Partial pname args pos)
 {-# INLINE pPartial #-}
 
+-- TODO: move these out into a separate library
 pJsonString :: Parser T.Text
 pJsonString = T.pack <$> between (char '"') (char '"') (many pChar)
   where
@@ -133,6 +135,19 @@ pJsonString = T.pack <$> between (char '"') (char '"') (many pChar)
       char 'u' *> (decodeUtf <$> count 4 hexDigitChar) ]
     decodeUtf x = toEnum (read ('0':'x':x) :: Int)
 {-# INLINE pJsonString #-}
+
+pJsonNumber :: Parser Scientific
+pJsonNumber = read . concat <$> sequence
+  [ option "" $ string "-"
+  , string "0" <|> some digitChar
+  , option "" $ (:) <$> char '.' <*> some digitChar
+  , option "" $ concat <$> sequence
+      [ string "e" <|> string "E"
+      , option "" $ string "+" <|> string "-"
+      , some digitChar
+      ]
+  ]
+{-# INLINE pJsonNumber #-}
 
 pComment :: Parser ()
 pComment = void $ do
@@ -192,7 +207,9 @@ pKey = (fmap Key . lexeme . label "key") (implicit <|> other)
 
 pArg :: Parser Arg
 pArg = do
-  let pValue = lexeme (label "JSON string" (String <$> pJsonString))
+  let pValue = lexeme $ choice [
+        label "JSON string" (String <$> pJsonString),
+        label "number" (Number <$> pJsonNumber) ]
   (Left <$> pKey) <|> (Right <$> pValue)
 
 pDelimiter :: Parser String
