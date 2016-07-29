@@ -109,8 +109,8 @@ pPartial f = do
     key <- pKey
     let pname = PName $ T.intercalate (T.pack ".") (unKey key)
     args <- many $ do
-      argName <- pVarName
-      char '='
+      argName <- lexeme (label "argument name" pVarName)
+      symbol "="
       -- TODO: allow more things than just strings and numbers
       argVal <- pArg
       return (argName, argVal)
