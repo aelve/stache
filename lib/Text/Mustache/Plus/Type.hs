@@ -24,7 +24,7 @@ module Text.Mustache.Plus.Type
 where
 
 import Control.DeepSeq
-import Control.Monad.Catch (Exception)
+import Control.Exception (Exception(..))
 import Data.Aeson (Value)
 import Data.Data (Data)
 import Data.Map (Map)
@@ -114,4 +114,9 @@ type FunctionM m = [Value] -> m Value
 data MustacheException = MustacheException (ParseError Char Dec)
   deriving (Eq, Show, Typeable, Generic)
 
+#if MIN_VERSION_base(4,8,0)
+instance Exception MustacheException where
+  displayException (MustacheException e) = parseErrorPretty e
+#else
 instance Exception MustacheException
+#endif
