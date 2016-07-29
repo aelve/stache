@@ -21,6 +21,7 @@ where
 
 import Control.DeepSeq
 import Control.Monad.Catch (Exception)
+import Data.Aeson (Value)
 import Data.Data (Data)
 import Data.Map (Map)
 import Data.Semigroup
@@ -47,7 +48,7 @@ data Template = Template
     -- ^ Collection of all templates that are available for interpolation
     -- (as partials). The top-level one is also contained here and the
     -- “focus” can be switched easily by modifying 'templateActual'.
-  } deriving (Eq, Ord, Show, Data, Typeable, Generic)
+  } deriving (Eq, Show, Data, Typeable, Generic)
 
 instance Semigroup Template where
   (Template pname x) <> (Template _ y) = Template pname (M.union x y)
@@ -60,9 +61,10 @@ data Node
   | UnescapedVar    Key        -- ^ Unescaped variable
   | Section         Key [Node] -- ^ Mustache section
   | InvertedSection Key [Node] -- ^ Inverted section
-  | Partial         PName (Maybe Pos)
-    -- ^ Partial with indentation level ('Nothing' means it was inlined)
-  deriving (Eq, Ord, Show, Data, Typeable, Generic)
+  | Partial         PName [(Text, Either Key Value)] (Maybe Pos)
+    -- ^ Partial with (optional) arguments and indentation level ('Nothing'
+    --   means it was inlined)
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 -- | Identifier for values to interpolate.
 --

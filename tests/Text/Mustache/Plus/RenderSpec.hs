@@ -97,7 +97,7 @@ spec = describe "renderMustache" $ do
         it "skips non-empty list" $
           r nodes (object ["foo" .= [True]]) `shouldBe` ""
   context "when rendering a partial" $ do
-    let nodes = [ Partial "partial" (Just $ unsafePos 4)
+    let nodes = [ Partial "partial" [] (Just $ unsafePos 4)
                 , TextBlock "*" ]
     it "skips missing partial" $
       r nodes Null `shouldBe` "   *"
@@ -107,3 +107,15 @@ spec = describe "renderMustache" $ do
                        , ("partial", [TextBlock "one\ntwo\nthree"]) ]
       in renderMustache template Null `shouldBe`
            "   one\n   two\n   three*"
+    context "(+) which has arguments" $ do
+      let outer = [Partial "partial" [("foo", Right (String "text"))] Nothing]
+          inner = [TextBlock ">> ", EscapedVar (Key ["foo"])]
+      let template = Template "test" $
+            M.fromList [ ("test", outer)
+                       , ("partial", inner) ]
+      it "passes arguments to partials" $
+        renderMustache template Null `shouldBe`
+          ">> text"
+      it "gives arguments precedence over context" $
+        renderMustache template (object ["foo" .= ("bar" :: Text)]) `shouldBe`
+          ">> text"

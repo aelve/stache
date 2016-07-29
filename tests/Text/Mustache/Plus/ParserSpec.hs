@@ -7,6 +7,7 @@ module Text.Mustache.Plus.ParserSpec
 where
 
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Aeson (Value(..))
 import Test.Hspec
 import Test.Hspec.Megaparsec
 import Text.Megaparsec
@@ -67,13 +68,19 @@ spec = describe "parseMustache" $ do
   context "when parsing a partial" $ do
     it "parses a partial with white space" $
       p "{{> that-s_my-partial }}" `shouldParse`
-        [Partial "that-s_my-partial" (Just $ unsafePos 1)]
+        [Partial "that-s_my-partial" [] (Just $ unsafePos 1)]
     it "parses a partial without white space" $
       p "{{>that-s_my-partial}}" `shouldParse`
-        [Partial "that-s_my-partial" (Just $ unsafePos 1)]
+        [Partial "that-s_my-partial" [] (Just $ unsafePos 1)]
     it "handles indented partial correctly" $
       p "   {{> next_one }}" `shouldParse`
-        [Partial "next_one" (Just $ unsafePos 4)]
+        [Partial "next_one" [] (Just $ unsafePos 4)]
+    it "(+) parses a partial with variables" $
+      p "{{> partial arg1=foo.bar arg2=\"test\\n\"}}" `shouldParse`
+        [Partial "partial"
+                 [("arg1", Left (Key ["foo","bar"])),
+                  ("arg2", Right (String "test\n"))]
+                 (Just $ unsafePos 1)]
   context "when running into delimiter change" $ do
     it "has effect" $
       p "{{=<< >>=}}<<var>>{{var}}" `shouldParse`

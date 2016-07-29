@@ -11,14 +11,16 @@ module Text.Mustache.Plus.Parser
   ( parseMustache )
 where
 
+import Data.Functor
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Lazy
 import Data.Char (isSpace)
 import Data.List (intercalate)
 import Data.Maybe (catMaybes)
-import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 import Text.Megaparsec
+import Data.Aeson (Value(..))
 import Text.Mustache.Plus.Type
 import qualified Data.Text             as T
 import qualified Text.Megaparsec.Lexer as L
@@ -31,7 +33,7 @@ import qualified Text.Megaparsec.Lexer as L
 parseMustache
   :: FilePath
      -- ^ Location of file to parse
-  -> Text
+  -> TL.Text
      -- ^ File contents (Mustache template)
   -> Either (ParseError Char Dec) [Node]
      -- ^ Parsed nodes or parse error
@@ -84,10 +86,38 @@ pSection suffix f = do
 pPartial :: (Pos -> Maybe Pos) -> Parser Node
 pPartial f = do
   pos <- f <$> L.indentLevel
-  key <- pTag ">"
-  let pname = PName $ T.intercalate (T.pack ".") (unKey key)
-  return (Partial pname pos)
+  start <- gets openingDel
+  end   <- gets closingDel
+  between (symbol $ start ++ ">") (string end) $ do
+    key <- pKey
+    let pname = PName $ T.intercalate (T.pack ".") (unKey key)
+    args <- many $ do
+      argName <- T.pack <$> some (alphaNumChar <|> oneOf "-_")
+      char '='
+      -- TODO: allow more things than just strings
+      let pValue = lexeme (label "JSON string" (String <$> pJsonString))
+      argVal <- (Left <$> pKey) <|> (Right <$> pValue)
+      return (argName, argVal)
+    return (Partial pname args pos)
 {-# INLINE pPartial #-}
+
+pJsonString :: Parser T.Text
+pJsonString = T.pack <$> between (char '"') (char '"') (many pChar)
+  where
+    pChar = raw <|> (char '\\' *> quoted)
+    raw = satisfy (\c -> c /= '"' && c /= '\\')
+    quoted = choice [
+      char '"'  $> '"',
+      char '/'  $> '/',
+      char '\\' $> '\\',
+      char 'b'  $> '\b',
+      char 't'  $> '\t',
+      char 'f'  $> '\f',
+      char 'n'  $> '\n',
+      char 'r'  $> '\r',
+      char 'u' *> (decodeUtf <$> count 4 hexDigitChar) ]
+    decodeUtf x = toEnum (read ('0':'x':x) :: Int)
+{-# INLINE pJsonString #-}
 
 pComment :: Parser ()
 pComment = void $ do
@@ -159,7 +189,7 @@ pBol = do
 
 -- | Type of Mustache parser monad stack.
 
-type Parser = StateT Delimiters (Parsec Dec Text)
+type Parser = StateT Delimiters (Parsec Dec TL.Text)
 
 -- | State used in Mustache parser. It includes currently set opening and
 -- closing delimiters.

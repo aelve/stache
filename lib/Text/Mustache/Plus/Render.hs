@@ -96,8 +96,15 @@ renderNode (InvertedSection k ns) = do
   val <- lookupKey k
   when (isBlank val) $
     renderMany renderNode ns
-renderNode (Partial pname indent) =
-  renderPartial pname indent renderNode
+renderNode (Partial pname args indent) = do
+  resolvedArgs <- forM args $ \(argName, argValue) -> do
+    v <- case argValue of
+      Left key -> lookupKey key
+      Right val -> return val
+    return (argName, v)
+  let argsObject = Object (H.fromList resolvedArgs)
+  (if null args then id else addToLocalContext argsObject) $
+    renderPartial pname indent renderNode
 
 ----------------------------------------------------------------------------
 -- The rendering monad vocabulary
