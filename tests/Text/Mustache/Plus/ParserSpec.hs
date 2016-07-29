@@ -98,6 +98,15 @@ spec = describe "parseMustache" $ do
     it "parses assignment with no arguments" $
       p "{{foo = %some-func}}" `shouldParse`
         [Assign "foo" ("some-func", [])]
+    it "parses assignment with two arguments" $
+      p "{{foo = %some-func foo \"bar\"}}" `shouldParse`
+        [Assign "foo" ("some-func", [ Left (key "foo")
+                                    , Right (String "bar")])]
+    it "parses numeric arguments" $
+      p "{{foo = %some-func 1 -2 3.5e6}}" `shouldParse`
+        [Assign "foo" ("some-func", [ Right (Number 1)
+                                    , Right (Number (-2))
+                                    , Right (Number 3.5e6) ] )]
   context "when given malformed input" $ do
     let pos l c = SourcePos "" (unsafePos l) (unsafePos c) :| []
         ne      = NE.fromList

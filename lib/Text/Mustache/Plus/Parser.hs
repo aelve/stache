@@ -210,7 +210,7 @@ pArg = do
   let pValue = lexeme $ choice [
         label "JSON string" (String <$> pJsonString),
         label "number" (Number <$> pJsonNumber) ]
-  (Left <$> pKey) <|> (Right <$> pValue)
+  (Right <$> pValue) <|> (Left <$> pKey)
 
 pDelimiter :: Parser String
 pDelimiter = some (satisfy delChar) <?> "delimiter"
