@@ -45,6 +45,8 @@ library
                     , vector           >= 0.11 && < 0.12
   if !impl(ghc >= 8.0)
     build-depends:    semigroups       == 0.18.*
+  if !impl(ghc >= 7.10)
+    build-depends:    transformers
   exposed-modules:    Text.Mustache.Plus
                       Text.Mustache.Plus.Compile
                       Text.Mustache.Plus.Compile.TH

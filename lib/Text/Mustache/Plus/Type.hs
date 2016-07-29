@@ -7,6 +7,7 @@
 -- because "Text.Mustache.Plus" re-exports everything you may need, import that
 -- module instead.
 
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -35,6 +36,10 @@ import GHC.Generics
 import Text.Megaparsec
 import qualified Data.Map  as M
 import qualified Data.Text as T
+
+#if !MIN_VERSION_base(4,8,0)
+import Data.Monoid
+#endif
 
 -- | Mustache template as name of “top-level” template and a collection of
 -- all available templates (partials).
