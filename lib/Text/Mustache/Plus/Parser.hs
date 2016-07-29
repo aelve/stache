@@ -44,7 +44,8 @@ pMustache :: Parser () -> Parser [Node]
 pMustache = fmap catMaybes . manyTill (choice alts)
   where
     alts =
-      [ Nothing <$  withStandalone pComment
+      [ Just    <$> pAssign
+      , Nothing <$  withStandalone pComment
       , Just    <$> pSection "#" Section
       , Just    <$> pSection "^" InvertedSection
       , Just    <$> pStandalone (pPartial Just)
@@ -76,6 +77,21 @@ pUnescapedSpecial =
   UnescapedVar <$> between (symbol "{{{") (string "}}}") pKey
 {-# INLINE pUnescapedSpecial #-}
 
+pAssign :: Parser Node
+pAssign = do
+  start <- gets openingDel
+  end   <- gets closingDel
+  vname <- try $ do
+    symbol start
+    vname <- lexeme (label "variable" pVarName)
+    symbol "="
+    return vname
+  fname <- lexeme (char '%' *> label "function" pVarName)
+  args <- many pArg
+  string end
+  return (Assign vname (fname, args))
+{-# INLINE pAssign #-}
+
 pSection :: String -> (Key -> [Node] -> Node) -> Parser Node
 pSection suffix f = do
   key   <- withStandalone (pTag suffix)
@@ -92,11 +108,10 @@ pPartial f = do
     key <- pKey
     let pname = PName $ T.intercalate (T.pack ".") (unKey key)
     args <- many $ do
-      argName <- T.pack <$> some (alphaNumChar <|> oneOf "-_")
+      argName <- pVarName
       char '='
       -- TODO: allow more things than just strings
-      let pValue = lexeme (label "JSON string" (String <$> pJsonString))
-      argVal <- (Left <$> pKey) <|> (Right <$> pValue)
+      argVal <- pArg
       return (argName, argVal)
     return (Partial pname args pos)
 {-# INLINE pPartial #-}
@@ -165,13 +180,20 @@ pClosingTag key = do
   void $ between (symbol $ start ++ "/") (string end) (symbol str)
 {-# INLINE pClosingTag #-}
 
+pVarName :: Parser T.Text
+pVarName = T.pack <$> some (alphaNumChar <|> oneOf "-_")
+
 pKey :: Parser Key
 pKey = (fmap Key . lexeme . label "key") (implicit <|> other)
   where
     implicit = [] <$ char '.'
-    other    = sepBy1 (T.pack <$> some ch) (char '.')
-    ch       = alphaNumChar <|> oneOf "-_"
+    other    = sepBy1 pVarName (char '.')
 {-# INLINE pKey #-}
+
+pArg :: Parser Arg
+pArg = do
+  let pValue = lexeme (label "JSON string" (String <$> pJsonString))
+  (Left <$> pKey) <|> (Right <$> pValue)
 
 pDelimiter :: Parser String
 pDelimiter = some (satisfy delChar) <?> "delimiter"

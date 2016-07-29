@@ -78,7 +78,8 @@ module Text.Mustache.Plus
   , compileMustacheFile
   , compileMustacheText
     -- * Rendering
-  , renderMustache )
+  , renderMustache
+  , renderMustacheM )
 where
 
 import Text.Mustache.Plus.Compile

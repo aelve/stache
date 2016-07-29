@@ -7,17 +7,18 @@
 -- import the module, because "Text.Mustache.Plus" re-exports everything you may
 -- need, import that module instead.
 
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Text.Mustache.Plus.Render
-  ( renderMustache )
+  ( renderMustache
+  , renderMustacheM )
 where
 
-import Control.Monad.Reader
-import Control.Monad.Writer.Lazy
+import Data.Functor.Identity
+import Control.Monad.RWS.Lazy
 import Data.Aeson
 import Data.Foldable (asum)
+import Control.Applicative
 import Data.List (tails)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (fromMaybe)
@@ -35,27 +36,32 @@ import qualified Data.Text.Lazy         as TL
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Vector            as V
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
-
 ----------------------------------------------------------------------------
 -- The rendering monad
 
--- | Synonym for the monad we use for rendering. It allows to share context
--- and accumulate the result as 'B.Builder' data which is then turned into
--- lazy 'TL.Text'.
+-- | Synonym for the monad we use for rendering.
+--
+-- * Reader ('RenderContext'): rendering context
+-- * Writer ('B.Builder'): rendered result
+-- * State ('Object'): variables
 
-type Render a = ReaderT RenderContext (Writer B.Builder) a
+type Render m a = RWST (RenderContext m) B.Builder Object m a
 
 -- | The render monad context.
 
-data RenderContext = RenderContext
-  { rcIndent   :: Maybe Pos      -- ^ Actual indentation level
-  , rcContext  :: NonEmpty Value -- ^ The context stack
-  , rcPrefix   :: Key            -- ^ Prefix accumulated by entering sections
-  , rcTemplate :: Template       -- ^ The template to render
-  , rcLastNode :: Bool           -- ^ Is this last node in this partial?
+data RenderContext m = RenderContext
+  { -- | Actual indentation level
+    rcIndent    :: Maybe Pos
+    -- | The context stack
+  , rcContext   :: NonEmpty Value
+    -- | Prefix accumulated by entering sections
+  , rcPrefix    :: Key
+    -- | The template to render
+  , rcTemplate  :: Template
+    -- | Functions that can be called
+  , rcFunctions :: M.Map Text (FunctionM m)
+    -- | Is this last node in this partial?
+  , rcLastNode  :: Bool
   }
 
 ----------------------------------------------------------------------------
@@ -64,18 +70,30 @@ data RenderContext = RenderContext
 -- | Render a Mustache 'Template' using Aeson's 'Value' to get actual values
 -- for interpolation.
 
-renderMustache :: Template -> Value -> TL.Text
-renderMustache t =
-  runRender (renderPartial (templateActual t) Nothing renderNode) t
+renderMustache :: M.Map Text Function -> Template -> Value -> TL.Text
+renderMustache fs t v =
+  runIdentity $ renderMustacheM (fmap (fmap Identity) fs) t v
+
+renderMustacheM
+  :: Monad m
+  => M.Map Text (FunctionM m) -> Template -> Value -> m TL.Text
+renderMustacheM fs t v =
+  runRender (renderPartial (templateActual t) Nothing renderNode) fs t v
 
 -- | Render a single 'Node'.
 
-renderNode :: Node -> Render ()
+renderNode :: Monad m => Node -> Render m ()
 renderNode (TextBlock txt) = outputIndented txt
 renderNode (EscapedVar k) =
   lookupKey k >>= outputRaw . escapeHtml . renderValue
 renderNode (UnescapedVar k) =
   lookupKey k >>= outputRaw . renderValue
+renderNode (Assign k (fname, args)) = do
+  mbFunc <- M.lookup fname <$> asks rcFunctions
+  forM_ mbFunc $ \func -> do
+    resolvedArgs <- mapM resolveArg args
+    val <- lift (func resolvedArgs)
+    modify (H.insert k val)
 renderNode (Section k ns) = do
   val <- lookupKey k
   enterSection k $
@@ -97,14 +115,19 @@ renderNode (InvertedSection k ns) = do
   when (isBlank val) $
     renderMany renderNode ns
 renderNode (Partial pname args indent) = do
-  resolvedArgs <- forM args $ \(argName, argValue) -> do
-    v <- case argValue of
-      Left key -> lookupKey key
-      Right val -> return val
-    return (argName, v)
-  let argsObject = Object (H.fromList resolvedArgs)
-  (if null args then id else addToLocalContext argsObject) $
-    renderPartial pname indent renderNode
+  resolvedArgs <- forM args $ \(argName, arg) ->
+    (,) <$> pure argName <*> resolveArg arg
+  vars <- get; put mempty
+  -- Note that 'addToLocalContext' works in such a way that the resulting
+  -- context will be 'resolvedArgs : vars : context'. Here's a relevant
+  -- demonstration using 'local' (which 'addToLocalContext' uses):
+  --
+  -- >>> runReader (local (1:) $ local (2:) $ ask) []
+  -- [2,1]
+  addToLocalContext (Object vars) $
+    addToLocalContext (Object (H.fromList resolvedArgs)) $
+      renderPartial pname indent renderNode
+  put vars
 
 ----------------------------------------------------------------------------
 -- The rendering monad vocabulary
@@ -112,32 +135,35 @@ renderNode (Partial pname args indent) = do
 -- | Run 'Render' monad given template to render and a 'Value' to take
 -- values from.
 
-runRender :: Render a -> Template -> Value -> TL.Text
-runRender m t v = (B.toLazyText . execWriter) (runReaderT m rc)
+runRender
+  :: Monad m
+  => Render m a -> M.Map Text (FunctionM m) -> Template -> Value -> m TL.Text
+runRender m f t v = B.toLazyText . snd <$> evalRWST m rc mempty
   where
     rc = RenderContext
-      { rcIndent   = Nothing
-      , rcContext  = v :| []
-      , rcPrefix   = mempty
-      , rcTemplate = t
-      , rcLastNode = True }
+      { rcIndent    = Nothing
+      , rcContext   = v :| []
+      , rcPrefix    = mempty
+      , rcTemplate  = t
+      , rcFunctions = f
+      , rcLastNode  = True }
 {-# INLINE runRender #-}
 
 -- | Output a piece of strict 'Text'.
 
-outputRaw :: Text -> Render ()
+outputRaw :: Monad m => Text -> Render m ()
 outputRaw = tell . B.fromText
 {-# INLINE outputRaw #-}
 
 -- | Output indentation consisting of appropriate number of spaces.
 
-outputIndent :: Render ()
+outputIndent :: Monad m => Render m ()
 outputIndent = asks rcIndent >>= outputRaw . buildIndent
 {-# INLINE outputIndent #-}
 
 -- | Output piece of strict 'Text' with added indentation.
 
-outputIndented :: Text -> Render ()
+outputIndented :: Monad m => Text -> Render m ()
 outputIndented txt = do
   level <- asks rcIndent
   lnode <- asks rcLastNode
@@ -150,10 +176,11 @@ outputIndented txt = do
 -- | Render a partial.
 
 renderPartial
-  :: PName             -- ^ Name of partial to render
-  -> Maybe Pos         -- ^ Indentation level to use
-  -> (Node -> Render ()) -- ^ How to render nodes in that partial
-  -> Render ()
+  :: Monad m
+  => PName                 -- ^ Name of partial to render
+  -> Maybe Pos             -- ^ Indentation level to use
+  -> (Node -> Render m ()) -- ^ How to render nodes in that partial
+  -> Render m ()
 renderPartial pname i f =
   local u (outputIndent >> getNodes >>= renderMany f)
   where
@@ -166,7 +193,7 @@ renderPartial pname i f =
 
 -- | Get collection of 'Node's for actual template.
 
-getNodes :: Render [Node]
+getNodes :: Monad m => Render m [Node]
 getNodes = do
   Template actual cache <- asks rcTemplate
   return (M.findWithDefault [] actual cache)
@@ -175,9 +202,10 @@ getNodes = do
 -- | Render many nodes.
 
 renderMany
-  :: (Node -> Render ()) -- ^ How to render a node
-  -> [Node]            -- ^ The collection of nodes to render
-  -> Render ()
+  :: Monad m
+  => (Node -> Render m ()) -- ^ How to render a node
+  -> [Node]                -- ^ The collection of nodes to render
+  -> Render m ()
 renderMany _ [] = return ()
 renderMany f [n] = do
   ln <- asks rcLastNode
@@ -186,18 +214,24 @@ renderMany f (n:ns) = do
   local (\rc -> rc { rcLastNode = False }) (f n)
   renderMany f ns
 
+resolveArg :: Monad m => Arg -> Render m Value
+resolveArg (Left key) = lookupKey key
+resolveArg (Right val) = return val
+
 -- | Lookup a 'Value' by its 'Key'.
 
-lookupKey :: Key -> Render Value
+lookupKey :: Monad m => Key -> Render m Value
 lookupKey (Key []) = NE.head <$> asks rcContext
 lookupKey k = do
   v <- asks rcContext
   p <- asks rcPrefix
+  vars <- get
   return . fromMaybe Null $
-    if (null . drop 1 . unKey) k
-      then let f x = asum (simpleLookup (x <> k) <$> v)
-           in asum (fmap (f . Key) . reverse . tails $ unKey p)
-      else asum (simpleLookup (p <> k) <$> v)
+    case k of
+      Key [x] -> H.lookup x vars <|>
+                 asum [ asum (simpleLookup (Key prefix <> k) <$> v)
+                      | prefix <- reverse (tails (unKey p)) ]
+      Key _   -> asum (simpleLookup (p <> k) <$> v)
 
 -- | Lookup a 'Value' by traversing another 'Value' using given 'Key' as
 -- “path”.
@@ -210,7 +244,7 @@ simpleLookup _            _          = Nothing
 
 -- | Enter the section by adding given 'Key' prefix to current prefix.
 
-enterSection :: Key -> Render a -> Render a
+enterSection :: Monad m => Key -> Render m a -> Render m a
 enterSection p =
   local (\rc -> rc { rcPrefix = p <> rcPrefix rc })
 {-# INLINE enterSection #-}
@@ -218,7 +252,8 @@ enterSection p =
 -- | Add new value on the top of context. The new value has the highest
 -- priority when lookup takes place.
 
-addToLocalContext :: Value -> Render a -> Render a
+addToLocalContext :: Monad m => Value -> Render m a -> Render m a
+addToLocalContext (Object v) | null v = id
 addToLocalContext v =
   local (\rc -> rc { rcContext = NE.cons v (rcContext rc) })
 {-# INLINE addToLocalContext #-}

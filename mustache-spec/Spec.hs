@@ -84,5 +84,5 @@ specData aspect bytes = describe aspect $ do
                   Left perr -> handleError perr >> undefined
                   Right ns  -> return (pname, ns)
               let ps2 = M.fromList ps1 `M.union` templateCache
-              renderMustache (Template templateActual ps2) testData
+              renderMustache mempty (Template templateActual ps2) testData
                 `shouldBe` testExpected

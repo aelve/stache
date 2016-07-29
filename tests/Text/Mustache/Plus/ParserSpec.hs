@@ -94,6 +94,10 @@ spec = describe "parseMustache" $ do
     it "propagates delimiter change from a nested scope" $
       p "{{#section}}{{=<< >>=}}<</section>><<var>>" `shouldParse`
         [Section (key "section") [], EscapedVar (key "var")]
+  context "(+) when parsing an assignment" $ do
+    it "parses assignment with no arguments" $
+      p "{{foo = %some-func}}" `shouldParse`
+        [Assign "foo" ("some-func", [])]
   context "when given malformed input" $ do
     let pos l c = SourcePos "" (unsafePos l) (unsafePos c) :| []
         ne      = NE.fromList
@@ -101,11 +105,13 @@ spec = describe "parseMustache" $ do
       p "{{ name " `shouldFailWith` ParseError
         { errorPos        = pos 1 9
         , errorUnexpected = S.singleton EndOfInput
-        , errorExpected   = S.singleton (Tokens $ ne "}}")
+        , errorExpected   = S.fromList [ Tokens (ne "}}")
+                                       , Tokens (ne "=") ]
         , errorCustom     = S.empty }
     it "rejects unknown tags" $
       p "{{? boo }}" `shouldFailWith` ParseError
         { errorPos        = pos 1 3
         , errorUnexpected = S.singleton (Tokens $ ne "?")
-        , errorExpected   = S.singleton (Label  $ ne "key")
+        , errorExpected   = S.fromList [ Label (ne "key")
+                                       , Label (ne "variable") ]
         , errorCustom     = S.empty }

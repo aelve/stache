@@ -16,6 +16,9 @@ module Text.Mustache.Plus.Type
   , Node (..)
   , Key (..)
   , PName (..)
+  , Function
+  , FunctionM
+  , Arg
   , MustacheException (..) )
 where
 
@@ -24,7 +27,7 @@ import Control.Monad.Catch (Exception)
 import Data.Aeson (Value)
 import Data.Data (Data)
 import Data.Map (Map)
-import Data.Semigroup
+import Data.Semigroup (Semigroup(..))
 import Data.String (IsString (..))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -59,9 +62,11 @@ data Node
   = TextBlock       Text       -- ^ Plain text contained between tags
   | EscapedVar      Key        -- ^ HTML-escaped variable
   | UnescapedVar    Key        -- ^ Unescaped variable
+  | Assign          Text (Text, [Arg])
+    -- ^ Call a function with arguments and assign the result to a variable
   | Section         Key [Node] -- ^ Mustache section
   | InvertedSection Key [Node] -- ^ Inverted section
-  | Partial         PName [(Text, Either Key Value)] (Maybe Pos)
+  | Partial         PName [(Text, Arg)] (Maybe Pos)
     -- ^ Partial with (optional) arguments and indentation level ('Nothing'
     --   means it was inlined)
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -89,6 +94,15 @@ instance IsString PName where
   fromString = PName . T.pack
 
 instance NFData PName
+
+-- | An argument (for functions or partials).
+type Arg = Either Key Value
+
+-- | A pure function that can be called from the template.
+type Function = [Value] -> Value
+
+-- | A function (in some monad) that can be called from the template.
+type FunctionM m = [Value] -> m Value
 
 -- | Exception that is thrown when parsing of a template has failed.
 
