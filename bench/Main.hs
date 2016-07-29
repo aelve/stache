@@ -85,11 +85,11 @@ bparser desc path = env (T.readFile path)
 
 brender :: String -> FilePath -> Value -> Benchmark
 brender desc path value = env (compileMustacheFile path)
-  (bench desc . nf (`renderMustache` value))
+  (bench desc . nf (\t -> renderMustache mempty t value))
 
 brender' :: String -> FilePath -> PName -> Value -> Benchmark
 brender' desc path pname value = env (compileMustacheDir pname path)
-  (bench desc . nf (`renderMustache` value))
+  (bench desc . nf (\t -> renderMustache mempty t value))
 
 ----------------------------------------------------------------------------
 -- Orphan instances
