@@ -21,6 +21,8 @@ import Data.Foldable (asum)
 import Control.Applicative
 import Data.List (tails)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.DList (DList)
+import qualified Data.DList as DL
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Text.Megaparsec.Pos (Pos, unPos)
@@ -41,11 +43,11 @@ import qualified Data.Vector            as V
 
 -- | Synonym for the monad we use for rendering.
 --
--- * Reader ('RenderContext'): rendering context
--- * Writer ('B.Builder'): rendered result
--- * State ('Object'): variables
+-- * Reader: rendering context
+-- * Writer: rendered result + warnings
+-- * State: variables
 
-type Render m a = RWST (RenderContext m) B.Builder Object m a
+type Render m a = RWST (RenderContext m) RenderOutput Object m a
 
 -- | The render monad context.
 
@@ -64,19 +66,34 @@ data RenderContext m = RenderContext
   , rcLastNode  :: Bool
   }
 
+data RenderOutput = RenderOutput {
+  roBuilder  :: B.Builder,
+  roWarnings :: DList String }
+
+instance Monoid RenderOutput where
+  mempty = RenderOutput mempty mempty
+  mappend a b = RenderOutput {
+    roBuilder  = roBuilder a <> roBuilder b,
+    roWarnings = roWarnings a <> roWarnings b }
+
+warn :: Monad m => String -> Render m ()
+warn w = tell (RenderOutput mempty (DL.singleton w))
+{-# INLINE warn #-}
+
 ----------------------------------------------------------------------------
 -- High-level interface
 
 -- | Render a Mustache 'Template' using Aeson's 'Value' to get actual values
 -- for interpolation.
 
-renderMustache :: M.Map Text Function -> Template -> Value -> TL.Text
+renderMustache
+  :: M.Map Text Function -> Template -> Value -> (TL.Text, [String])
 renderMustache fs t v =
   runIdentity $ renderMustacheM (fmap (fmap Identity) fs) t v
 
 renderMustacheM
   :: Monad m
-  => M.Map Text (FunctionM m) -> Template -> Value -> m TL.Text
+  => M.Map Text (FunctionM m) -> Template -> Value -> m (TL.Text, [String])
 renderMustacheM fs t v =
   runRender (renderPartial (templateActual t) Nothing renderNode) fs t v
 
@@ -85,17 +102,19 @@ renderMustacheM fs t v =
 renderNode :: Monad m => Node -> Render m ()
 renderNode (TextBlock txt) = outputIndented txt
 renderNode (EscapedVar k) =
-  lookupKey k >>= outputRaw . escapeHtml . renderValue
+  lookupKeyWarn k >>= outputRaw . escapeHtml . renderValue
 renderNode (UnescapedVar k) =
-  lookupKey k >>= outputRaw . renderValue
+  lookupKeyWarn k >>= outputRaw . renderValue
 renderNode (Assign k (fname, args)) = do
   mbFunc <- M.lookup fname <$> asks rcFunctions
-  forM_ mbFunc $ \func -> do
-    resolvedArgs <- mapM resolveArg args
-    val <- lift (func resolvedArgs)
-    modify (H.insert k val)
+  case mbFunc of
+    Nothing -> warn $ "unknown function: " ++ T.unpack fname
+    Just func -> do
+      resolvedArgs <- mapM resolveArg args
+      val <- lift (func resolvedArgs)
+      modify (H.insert k val)
 renderNode (Section k ns) = do
-  val <- lookupKey k
+  val <- lookupKeyNone k
   enterSection k $
     unless (isBlank val) $
       case val of
@@ -107,7 +126,7 @@ renderNode (Section k ns) = do
         _ ->
           renderMany renderNode ns
 renderNode (InvertedSection k ns) = do
-  val <- lookupKey k
+  val <- lookupKeyNone k
   when (isBlank val) $
     renderMany renderNode ns
 renderNode (Partial pname args indent) = do
@@ -133,9 +152,14 @@ renderNode (Partial pname args indent) = do
 
 runRender
   :: Monad m
-  => Render m a -> M.Map Text (FunctionM m) -> Template -> Value -> m TL.Text
-runRender m f t v = B.toLazyText . snd <$> evalRWST m rc mempty
+  => Render m a
+  -> M.Map Text (FunctionM m)
+  -> Template
+  -> Value
+  -> m (TL.Text, [String])
+runRender m f t v = output . snd <$> evalRWST m rc mempty
   where
+    output (RenderOutput a b) = (B.toLazyText a, DL.toList b)
     rc = RenderContext
       { rcIndent    = Nothing
       , rcContext   = v :| []
@@ -148,7 +172,7 @@ runRender m f t v = B.toLazyText . snd <$> evalRWST m rc mempty
 -- | Output a piece of strict 'Text'.
 
 outputRaw :: Monad m => Text -> Render m ()
-outputRaw = tell . B.fromText
+outputRaw t = tell (RenderOutput (B.fromText t) mempty)
 {-# INLINE outputRaw #-}
 
 -- | Output indentation consisting of appropriate number of spaces.
@@ -177,8 +201,14 @@ renderPartial
   -> Maybe Pos             -- ^ Indentation level to use
   -> (Node -> Render m ()) -- ^ How to render nodes in that partial
   -> Render m ()
-renderPartial pname i f =
-  local u (outputIndent >> getNodes >>= renderMany f)
+renderPartial pname i f = local u $ do
+  outputIndent
+  mbNodes <- getNodes
+  case mbNodes of
+    Just nodes ->
+      renderMany f nodes
+    Nothing ->
+      warn $ "missing partial: " ++ T.unpack (unPName pname)
   where
     u rc = rc
       { rcIndent   = addIndents i (rcIndent rc)
@@ -189,10 +219,10 @@ renderPartial pname i f =
 
 -- | Get collection of 'Node's for actual template.
 
-getNodes :: Monad m => Render m [Node]
+getNodes :: Monad m => Render m (Maybe [Node])
 getNodes = do
   Template actual cache <- asks rcTemplate
-  return (M.findWithDefault [] actual cache)
+  return (M.lookup actual cache)
 {-# INLINE getNodes #-}
 
 -- | Render many nodes.
@@ -211,23 +241,34 @@ renderMany f (n:ns) = do
   renderMany f ns
 
 resolveArg :: Monad m => Arg -> Render m Value
-resolveArg (Left key) = lookupKey key
+resolveArg (Left key) = lookupKeyWarn key
 resolveArg (Right val) = return val
+
+lookupKeyNone :: Monad m => Key -> Render m Value
+lookupKeyNone k = fromMaybe Null <$> lookupKey k
+
+lookupKeyWarn :: Monad m => Key -> Render m Value
+lookupKeyWarn k = do
+  mbV <- lookupKey k
+  case mbV of
+    Just v  -> return v
+    Nothing -> do
+      warn $ "missing key: " ++ keyToString k
+      return Null
 
 -- | Lookup a 'Value' by its 'Key'.
 
-lookupKey :: Monad m => Key -> Render m Value
-lookupKey (Key []) = NE.head <$> asks rcContext
+lookupKey :: Monad m => Key -> Render m (Maybe Value)
+lookupKey (Key []) = Just . NE.head <$> asks rcContext
 lookupKey k = do
   v <- asks rcContext
   p <- asks rcPrefix
   vars <- get
-  return . fromMaybe Null $
-    case k of
-      Key [x] -> H.lookup x vars <|>
-                 asum [ asum (simpleLookup (Key prefix <> k) <$> v)
-                      | prefix <- reverse (tails (unKey p)) ]
-      Key _   -> asum (simpleLookup (p <> k) <$> v)
+  return $ case k of
+    Key [x] -> H.lookup x vars <|>
+               asum [ asum (simpleLookup (Key prefix <> k) <$> v)
+                    | prefix <- reverse (tails (unKey p)) ]
+    Key _   -> asum (simpleLookup (p <> k) <$> v)
 
 -- | Lookup a 'Value' by traversing another 'Value' using given 'Key' as
 -- “path”.

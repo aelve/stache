@@ -16,7 +16,6 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Char (isSpace)
-import Data.List (intercalate)
 import Data.Maybe (catMaybes)
 import qualified Data.Text.Lazy as TL
 import Text.Megaparsec
@@ -258,8 +257,3 @@ lexeme = L.lexeme scn
 symbol :: String -> Parser String
 symbol = L.symbol scn
 {-# INLINE symbol #-}
-
-keyToString :: Key -> String
-keyToString (Key []) = "."
-keyToString (Key ks) = intercalate "." (T.unpack <$> ks)
-{-# INLINE keyToString #-}

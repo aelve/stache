@@ -16,6 +16,7 @@ module Text.Mustache.Plus.Type
   ( Template (..)
   , Node (..)
   , Key (..)
+  , keyToString
   , PName (..)
   , Function
   , FunctionM
@@ -30,6 +31,7 @@ import Data.Data (Data)
 import Data.Map (Map)
 import Data.Semigroup (Semigroup(..))
 import Data.String (IsString (..))
+import Data.List (intercalate)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import GHC.Generics
@@ -88,6 +90,11 @@ newtype Key = Key { unKey :: [Text] }
   deriving (Eq, Ord, Show, Semigroup, Monoid, Data, Typeable, Generic)
 
 instance NFData Key
+
+keyToString :: Key -> String
+keyToString (Key []) = "."
+keyToString (Key ks) = intercalate "." (T.unpack <$> ks)
+{-# INLINE keyToString #-}
 
 -- | Identifier for partials. Note that with the @OverloadedStrings@
 -- extension you can use just string literals to create values of this type.

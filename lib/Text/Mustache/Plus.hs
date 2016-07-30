@@ -71,6 +71,7 @@ module Text.Mustache.Plus
     Template (..)
   , Node (..)
   , Key (..)
+  , keyToString
   , PName (..)
   , MustacheException (..)
     -- * Compiling
