@@ -106,7 +106,7 @@ renderNode (EscapedVar k) =
 renderNode (UnescapedVar k) =
   lookupKeyWarn k >>= outputRaw . renderValue
 renderNode (Assign k (fname, args)) = do
-  mbFunc <- M.lookup fname <$> asks rcFunctions
+  mbFunc <- M.lookup fname `liftM` asks rcFunctions
   case mbFunc of
     Nothing -> warn $ "unknown function: " ++ T.unpack fname
     Just func -> do
@@ -131,7 +131,7 @@ renderNode (InvertedSection k ns) = do
     renderMany renderNode ns
 renderNode (Partial pname args indent) = do
   resolvedArgs <- forM args $ \(argName, arg) ->
-    (,) <$> pure argName <*> resolveArg arg
+    (,) argName `liftM` resolveArg arg
   vars <- get; put mempty
   -- Note that 'addToLocalContext' works in such a way that the resulting
   -- context will be 'resolvedArgs : vars : context'. Here's a relevant
@@ -157,7 +157,7 @@ runRender
   -> Template
   -> Value
   -> m (TL.Text, [String])
-runRender m f t v = output . snd <$> evalRWST m rc mempty
+runRender m f t v = (output . snd) `liftM` evalRWST m rc mempty
   where
     output (RenderOutput a b) = (B.toLazyText a, DL.toList b)
     rc = RenderContext
@@ -245,7 +245,7 @@ resolveArg (Left key) = lookupKeyWarn key
 resolveArg (Right val) = return val
 
 lookupKeyNone :: Monad m => Key -> Render m Value
-lookupKeyNone k = fromMaybe Null <$> lookupKey k
+lookupKeyNone k = fromMaybe Null `liftM` lookupKey k
 
 lookupKeyWarn :: Monad m => Key -> Render m Value
 lookupKeyWarn k = do
@@ -259,7 +259,7 @@ lookupKeyWarn k = do
 -- | Lookup a 'Value' by its 'Key'.
 
 lookupKey :: Monad m => Key -> Render m (Maybe Value)
-lookupKey (Key []) = Just . NE.head <$> asks rcContext
+lookupKey (Key []) = (Just . NE.head) `liftM` asks rcContext
 lookupKey k = do
   v <- asks rcContext
   p <- asks rcPrefix
@@ -290,7 +290,7 @@ enterSection p =
 -- priority when lookup takes place.
 
 addToLocalContext :: Monad m => Value -> Render m a -> Render m a
-addToLocalContext (Object v) | null v = id
+addToLocalContext (Object v) | H.null v = id
 addToLocalContext v =
   local (\rc -> rc { rcContext = NE.cons v (rcContext rc) })
 {-# INLINE addToLocalContext #-}

@@ -93,7 +93,7 @@ instance NFData Key
 
 keyToString :: Key -> String
 keyToString (Key []) = "."
-keyToString (Key ks) = intercalate "." (T.unpack <$> ks)
+keyToString (Key ks) = intercalate "." (map T.unpack ks)
 {-# INLINE keyToString #-}
 
 -- | Identifier for partials. Note that with the @OverloadedStrings@
