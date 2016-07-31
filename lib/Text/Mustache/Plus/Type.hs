@@ -14,13 +14,13 @@
 
 module Text.Mustache.Plus.Type
   ( Template (..)
+  , Expr (..)
   , Node (..)
   , Key (..)
   , keyToString
   , PName (..)
   , Function
   , FunctionM
-  , Arg (..)
   , MustacheException (..) )
 where
 
@@ -63,18 +63,25 @@ data Template = Template
 instance Semigroup Template where
   (Template pname x) <> (Template _ y) = Template pname (M.union x y)
 
+data Expr
+  = Variable Key         -- ^ A key which will be looked up
+  | Literal Value        -- ^ A JSON value
+  | Call Text [Expr]     -- ^ A function call
+  | Interpolated [Node]  -- ^ A template which will be turned into string
+                         --   during evaluation (variables set inside the
+                         --   template won't spill outside)
+  deriving (Eq, Show, Data, Typeable, Generic)
+
 -- | Structural element of template.
 
 data Node
-  = TextBlock       Text       -- ^ Plain text contained between tags
-  | EscapedVar      Key        -- ^ HTML-escaped variable
-  | UnescapedVar    Key        -- ^ Unescaped variable
-  | Assign          Text (Either Arg (Text, [Arg]))
-    -- ^ Either assign a value to a variable, or call a function with
-    --   some arguments and assign the result to a variable
-  | Section         Key [Node] -- ^ Mustache section
-  | InvertedSection Key [Node] -- ^ Inverted section
-  | Partial         PName [(Text, Arg)] (Maybe Pos)
+  = TextBlock       Text        -- ^ Plain text contained between tags
+  | EscapedExpr     Expr        -- ^ HTML-escaped expression
+  | UnescapedExpr   Expr        -- ^ Unescaped expression
+  | Assign          Text Expr   -- ^ Assign an expression to a variable
+  | Section         Key [Node]  -- ^ Mustache section
+  | InvertedSection Key [Node]  -- ^ Inverted section
+  | Partial         PName [(Text, Expr)] (Maybe Pos)
     -- ^ Partial with (optional) arguments and indentation level ('Nothing'
     --   means it was inlined)
   deriving (Eq, Show, Data, Typeable, Generic)
@@ -107,14 +114,6 @@ instance IsString PName where
   fromString = PName . T.pack
 
 instance NFData PName
-
--- | An argument (for functions or partials). Any keys in the argument will
--- be looked up before passing the argument. Variables set in an interpolated argument won't affect the 
-data Arg
-  = ArgVariable Key         -- ^ A key which will be looked up
-  | ArgValue Value          -- ^ A JSON value
-  | ArgInterpolated [Node]  -- ^ A string which may contain tags
-  deriving (Eq, Show, Data, Typeable, Generic)
 
 -- | A pure function that can be called from the template.
 type Function = [Value] -> Value

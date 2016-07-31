@@ -69,6 +69,7 @@
 module Text.Mustache.Plus
   ( -- * Types
     Template (..)
+  , Expr (..)
   , Node (..)
   , Key (..)
   , keyToString

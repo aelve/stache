@@ -97,21 +97,13 @@ renderMustacheM fs t v =
 
 renderNode :: Monad m => Node -> Render m ()
 renderNode (TextBlock txt) = outputIndented txt
-renderNode (EscapedVar k) =
-  lookupKeyWarn k >>= outputRaw . escapeHtml . renderValue
-renderNode (UnescapedVar k) =
-  lookupKeyWarn k >>= outputRaw . renderValue
-renderNode (Assign k (Left arg)) = do
-  val <- resolveArg arg
+renderNode (EscapedExpr e) =
+  evaluateExpr e >>= outputRaw . escapeHtml . renderValue
+renderNode (UnescapedExpr e) =
+  evaluateExpr e >>= outputRaw . renderValue
+renderNode (Assign k e) = do
+  val <- evaluateExpr e
   modify (H.insert k val)
-renderNode (Assign k (Right (fname, args))) = do
-  mbFunc <- M.lookup fname `liftM` asks rcFunctions
-  case mbFunc of
-    Nothing -> warn $ "unknown function: " ++ T.unpack fname
-    Just func -> do
-      resolvedArgs <- mapM resolveArg args
-      val <- lift (func resolvedArgs)
-      modify (H.insert k val)
 renderNode (Section k ns) = do
   val <- lookupKeyNone k
   unless (isBlank val) $
@@ -126,8 +118,8 @@ renderNode (InvertedSection k ns) = do
   when (isBlank val) $
     renderMany renderNode ns
 renderNode (Partial pname args indent) = do
-  resolvedArgs <- forM args $ \(argName, arg) ->
-    (,) argName `liftM` resolveArg arg
+  argVals <- forM args $ \(argName, arg) ->
+    (,) argName `liftM` evaluateExpr arg
   vars <- get; put mempty
   -- Note that 'addToLocalContext' works in such a way that the resulting
   -- context will be 'resolvedArgs : vars : context'. Here's a relevant
@@ -136,7 +128,7 @@ renderNode (Partial pname args indent) = do
   -- >>> runReader (local (1:) $ local (2:) $ ask) []
   -- [2,1]
   addToLocalContext (Object vars) $
-    addToLocalContext (Object (H.fromList resolvedArgs)) $
+    addToLocalContext (Object (H.fromList argVals)) $
       renderPartial pname indent renderNode
   put vars
 
@@ -234,12 +226,21 @@ renderMany f (n:ns) = do
   local (\rc -> rc { rcLastNode = False }) (f n)
   renderMany f ns
 
-resolveArg :: Monad m => Arg -> Render m Value
-resolveArg (ArgVariable key) =
+evaluateExpr :: Monad m => Expr -> Render m Value
+evaluateExpr (Variable key) =
   lookupKeyWarn key
-resolveArg (ArgValue val) =
+evaluateExpr (Literal val) =
   return val
-resolveArg (ArgInterpolated nodes) = do
+evaluateExpr (Call fname args) = do
+  mbFunc <- M.lookup fname `liftM` asks rcFunctions
+  case mbFunc of
+    Nothing -> do
+      warn $ "unknown function: " ++ T.unpack fname
+      return Null
+    Just func -> do
+      argVals <- mapM evaluateExpr args
+      lift (func argVals)
+evaluateExpr (Interpolated nodes) = do
   -- Get the output and don't add it to the rendered document
   vars <- get
   ((), res) <- censor (const mempty) (listen (renderMany renderNode nodes))

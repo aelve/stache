@@ -51,9 +51,9 @@ pMustache = fmap catMaybes . manyTill (choice alts)
       , Just    <$> pStandalone (pPartial Just)
       , Just    <$> pPartial (const Nothing)
       , Nothing <$  withStandalone pSetDelimiters
-      , Just    <$> pUnescapedVariable
+      , Just    <$> pUnescapedExpr
       , Just    <$> pUnescapedSpecial
-      , Just    <$> pEscapedVariable
+      , Just    <$> pEscapedExpr
       , Just    <$> pTextBlock
       , Just    <$> fmap (TextBlock . T.pack) (string "|]") ]
 {-# INLINE pMustache #-}
@@ -69,16 +69,16 @@ pTextBlock = do
   TextBlock . T.pack <$> someTill anyChar terminator
 {-# INLINE pTextBlock #-}
 
-pUnescapedVariable :: Parser Node
-pUnescapedVariable = UnescapedVar <$> pTag "&"
-{-# INLINE pUnescapedVariable #-}
+pUnescapedExpr :: Parser Node
+pUnescapedExpr = UnescapedExpr <$> pTagExpr "&"
+{-# INLINE pUnescapedExpr #-}
 
 pUnescapedSpecial :: Parser Node
 pUnescapedSpecial = do
   start <- gets openingDel
   end   <- gets closingDel
   between (symbol $ start ++ "{") (string $ "}" ++ end) $
-    UnescapedVar <$> pKey
+    UnescapedExpr <$> pExpr True
 {-# INLINE pUnescapedSpecial #-}
 
 pAssign :: Parser Node
@@ -90,19 +90,14 @@ pAssign = do
     vname <- lexeme (label "variable" pVarName)
     symbol "="
     return vname
-  rightSide <- choice [
-    do fname <- lexeme (char '%' *> label "function" pVarName)
-       args <- many pArg
-       return (Right (fname, args)),
-    do arg <- pArg
-       return (Left arg) ]
+  rightSide <- pExpr True
   string end
   return (Assign vname rightSide)
 {-# INLINE pAssign #-}
 
 pSection :: String -> (Key -> [Node] -> Node) -> Parser Node
 pSection suffix f = do
-  key   <- withStandalone (pTag suffix)
+  key   <- withStandalone (pTagKey suffix)
   nodes <- (pMustache . withStandalone . pClosingTag) key
   return (f key nodes)
 {-# INLINE pSection #-}
@@ -118,15 +113,15 @@ pPartial f = do
     args <- many $ do
       argName <- lexeme (label "argument name" pVarName)
       symbol "="
-      -- TODO: allow more things than just strings and numbers
-      argVal <- pArg
+      argVal <- pExpr False
       return (argName, argVal)
     return (Partial pname args pos)
 {-# INLINE pPartial #-}
 
 -- TODO: move these out into a separate library
 pJsonString :: Parser T.Text
-pJsonString = T.pack <$> between (char '"') (char '"') (many pChar)
+pJsonString = label "JSON string" $
+  T.pack <$> between (char '"') (char '"') (many pChar)
   where
     pChar = raw <|> (char '\\' *> quoted)
     raw = satisfy (\c -> c /= '"' && c /= '\\')
@@ -144,16 +139,17 @@ pJsonString = T.pack <$> between (char '"') (char '"') (many pChar)
 {-# INLINE pJsonString #-}
 
 pJsonNumber :: Parser Scientific
-pJsonNumber = read . concat <$> sequence
-  [ option "" $ string "-"
-  , string "0" <|> some digitChar
-  , option "" $ (:) <$> char '.' <*> some digitChar
-  , option "" $ concat <$> sequence
-      [ string "e" <|> string "E"
-      , option "" $ string "+" <|> string "-"
-      , some digitChar
-      ]
-  ]
+pJsonNumber = label "number" $
+  read . concat <$> sequence
+    [ option "" $ string "-"
+    , string "0" <|> some digitChar
+    , option "" $ (:) <$> char '.' <*> some digitChar
+    , option "" $ concat <$> sequence
+        [ string "e" <|> string "E"
+        , option "" $ string "+" <|> string "-"
+        , some digitChar
+        ]
+    ]
 {-# INLINE pJsonNumber #-}
 
 pComment :: Parser ()
@@ -175,9 +171,9 @@ pSetDelimiters = void $ do
   put (Delimiters start' end')
 {-# INLINE pSetDelimiters #-}
 
-pEscapedVariable :: Parser Node
-pEscapedVariable = EscapedVar <$> pTag ""
-{-# INLINE pEscapedVariable #-}
+pEscapedExpr :: Parser Node
+pEscapedExpr = EscapedExpr <$> pTagExpr ""
+{-# INLINE pEscapedExpr #-}
 
 withStandalone :: Parser a -> Parser a
 withStandalone p = pStandalone p <|> p
@@ -187,12 +183,19 @@ pStandalone :: Parser a -> Parser a
 pStandalone p = pBol *> try (between sc (sc <* (void eol <|> eof)) p)
 {-# INLINE pStandalone #-}
 
-pTag :: String -> Parser Key
-pTag suffix = do
+pTagExpr :: String -> Parser Expr
+pTagExpr suffix = do
+  start <- gets openingDel
+  end   <- gets closingDel
+  between (symbol $ start ++ suffix) (string end) (pExpr True)
+{-# INLINE pTagExpr #-}
+
+pTagKey :: String -> Parser Key
+pTagKey suffix = do
   start <- gets openingDel
   end   <- gets closingDel
   between (symbol $ start ++ suffix) (string end) pKey
-{-# INLINE pTag #-}
+{-# INLINE pTagKey #-}
 
 pClosingTag :: Key -> Parser ()
 pClosingTag key = do
@@ -204,6 +207,7 @@ pClosingTag key = do
 
 pVarName :: Parser T.Text
 pVarName = T.pack <$> some (alphaNumChar <|> oneOf "-_")
+{-# INLINE pVarName #-}
 
 pKey :: Parser Key
 pKey = (fmap Key . lexeme . label "key") (implicit <|> other)
@@ -212,16 +216,27 @@ pKey = (fmap Key . lexeme . label "key") (implicit <|> other)
     other    = sepBy1 pVarName (char '.')
 {-# INLINE pKey #-}
 
-pArg :: Parser Arg
-pArg = do
-  let pValue = lexeme $ choice [
-        label "JSON string" (String <$> pJsonString),
-        label "number" (Number <$> pJsonNumber) ]
+pExpr
+  :: Bool          -- ^ Whether function calls without parens are allowed
+  -> Parser Expr
+pExpr callsAllowed = if callsAllowed then single <|> call else single
+  where
+    call = Call <$> lexeme (char '%' *> label "function" pVarName)
+                <*> many (pExpr False)
+    single = choice $ [
+      Literal      <$> pLiteral,
+      Variable     <$> pKey,
+      Interpolated <$> pInterpolated,
+      between (symbol "(") (symbol ")") (pExpr True) ]
+{-# INLINE pExpr #-}
+
+-- TODO: allow more things than just strings and numbers
+pLiteral :: Parser Value
+pLiteral = lexeme $ label "JSON value" $
   choice [
-    ArgValue        <$> pValue,
-    ArgVariable     <$> pKey,
-    ArgInterpolated <$> pInterpolated ]
-{-# INLINE pArg #-}
+    String <$> pJsonString,
+    Number <$> pJsonNumber ]
+{-# INLINE pLiteral #-}
 
 pInterpolated :: Parser [Node]
 pInterpolated = do

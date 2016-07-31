@@ -103,4 +103,4 @@ instance NFData Node
 
 instance NFData Template
 
-instance NFData Arg
+instance NFData Expr
