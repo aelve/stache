@@ -78,8 +78,8 @@ spec = describe "parseMustache" $ do
     it "(+) parses a partial with variables" $
       p "{{> partial arg1=foo.bar arg2=\"test\\n\"}}" `shouldParse`
         [Partial "partial"
-                 [("arg1", Left (Key ["foo","bar"])),
-                  ("arg2", Right (String "test\n"))]
+                 [("arg1", ArgVariable (Key ["foo","bar"])),
+                  ("arg2", ArgValue (String "test\n"))]
                  (Just $ unsafePos 1)]
   context "when running into delimiter change" $ do
     it "has effect" $
@@ -103,13 +103,42 @@ spec = describe "parseMustache" $ do
         [Assign "foo" ("some-func", [])]
     it "parses assignment with two arguments" $
       p "{{foo = %some-func foo \"bar\"}}" `shouldParse`
-        [Assign "foo" ("some-func", [ Left (key "foo")
-                                    , Right (String "bar")])]
+        [Assign "foo" ("some-func", [ ArgVariable (key "foo")
+                                    , ArgValue (String "bar")])]
     it "parses numeric arguments" $
       p "{{foo = %some-func 1 -2 3.5e6}}" `shouldParse`
-        [Assign "foo" ("some-func", [ Right (Number 1)
-                                    , Right (Number (-2))
-                                    , Right (Number 3.5e6) ] )]
+        [Assign "foo" ("some-func", [ ArgValue (Number 1)
+                                    , ArgValue (Number (-2))
+                                    , ArgValue (Number 3.5e6) ] )]
+  context "(+) when parsing interpolated arguments" $ do
+    it "parses an empty template" $
+      p "{{> p x=[||]}}" `shouldParse`
+        [Partial "p" [("x", ArgInterpolated [])] (Just $ unsafePos 1)]
+    it "parses a non-empty template" $ do
+      let nodes = [TextBlock " test ", EscapedVar (key "foo"), TextBlock " "]
+      p "{{> p x = [| test {{foo}} |] }}" `shouldParse`
+        [Partial "p" [("x", ArgInterpolated nodes)] (Just $ unsafePos 1)]
+    it "parses a template with a “|]” in it" $ do
+      let nodes = [Partial "p"
+                     [("x", ArgValue (String "|]"))]
+                     Nothing]
+      p "{{> p x=[|{{> p x=\"|]\"}}|]}}" `shouldParse`
+        [Partial "p" [("x", ArgInterpolated nodes)] (Just $ unsafePos 1)]
+    it "parses a template with interpolation in it" $ do
+      let nodes = [Partial "p"
+                     [("x", ArgInterpolated [])]
+                     Nothing]
+      p "{{> p x=[|{{> p x=[||]}}|]}}" `shouldParse`
+        [Partial "p" [("x", ArgInterpolated nodes)] (Just $ unsafePos 1)]
+    it "doesn't leak delimiter switches out" $ do
+      let nodes = [ TextBlock " "
+                  , TextBlock " "
+                  , EscapedVar (key "x")
+                  , TextBlock " " ]
+      p "{{> p x=[| {{=( )=}} (x) |] }} {{y}}" `shouldParse`
+        [ Partial "p" [("x", ArgInterpolated nodes)] Nothing
+        , TextBlock " "
+        , EscapedVar (key "y") ]
   context "when given malformed input" $ do
     let pos l c = SourcePos "" (unsafePos l) (unsafePos c) :| []
         ne      = NE.fromList
@@ -123,6 +152,13 @@ spec = describe "parseMustache" $ do
     it "rejects unknown tags" $
       p "{{? boo }}" `shouldFailWith` ParseError
         { errorPos        = pos 1 3
+        , errorUnexpected = S.singleton (Tokens $ ne "?")
+        , errorExpected   = S.fromList [ Label (ne "key")
+                                       , Label (ne "variable") ]
+        , errorCustom     = S.empty }
+    it "reports errors inside interpolated arguments" $
+      p "{{> foo x=[| {{? x }} |] }}" `shouldFailWith` ParseError
+        { errorPos        = pos 1 16
         , errorUnexpected = S.singleton (Tokens $ ne "?")
         , errorExpected   = S.fromList [ Label (ne "key")
                                        , Label (ne "variable") ]

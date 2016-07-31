@@ -20,7 +20,7 @@ module Text.Mustache.Plus.Type
   , PName (..)
   , Function
   , FunctionM
-  , Arg
+  , Arg (..)
   , MustacheException (..) )
 where
 
@@ -107,8 +107,13 @@ instance IsString PName where
 
 instance NFData PName
 
--- | An argument (for functions or partials).
-type Arg = Either Key Value
+-- | An argument (for functions or partials). Any keys in the argument will
+-- be looked up before passing the argument. Variables set in an interpolated argument won't affect the 
+data Arg
+  = ArgVariable Key         -- ^ A key which will be looked up
+  | ArgValue Value          -- ^ A JSON value
+  | ArgInterpolated [Node]  -- ^ A string which may contain tags
+  deriving (Eq, Show, Data, Typeable, Generic)
 
 -- | A pure function that can be called from the template.
 type Function = [Value] -> Value

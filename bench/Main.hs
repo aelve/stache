@@ -102,3 +102,5 @@ instance NFData Pos where
 instance NFData Node
 
 instance NFData Template
+
+instance NFData Arg

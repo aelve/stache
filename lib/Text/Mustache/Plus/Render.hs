@@ -241,8 +241,19 @@ renderMany f (n:ns) = do
   renderMany f ns
 
 resolveArg :: Monad m => Arg -> Render m Value
-resolveArg (Left key) = lookupKeyWarn key
-resolveArg (Right val) = return val
+resolveArg (ArgVariable key) =
+  lookupKeyWarn key
+resolveArg (ArgValue val) =
+  return val
+resolveArg (ArgInterpolated nodes) = do
+  -- Get the output and don't add it to the rendered document
+  vars <- get
+  ((), res) <- censor (const mempty) (listen (renderMany renderNode nodes))
+  put vars
+  -- Output the warnings
+  tell (res {roBuilder = mempty})
+  -- Return the output
+  return (String (TL.toStrict (B.toLazyText (roBuilder res))))
 
 lookupKeyNone :: Monad m => Key -> Render m Value
 lookupKeyNone k = fromMaybe Null `liftM` lookupKey k

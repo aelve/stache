@@ -54,15 +54,16 @@ pMustache = fmap catMaybes . manyTill (choice alts)
       , Just    <$> pUnescapedVariable
       , Just    <$> pUnescapedSpecial
       , Just    <$> pEscapedVariable
-      , Just    <$> pTextBlock ]
+      , Just    <$> pTextBlock
+      , Just    <$> fmap (TextBlock . T.pack) (string "|]") ]
 {-# INLINE pMustache #-}
 
 pTextBlock :: Parser Node
 pTextBlock = do
   start <- gets openingDel
-  (void . notFollowedBy . string) start
+  void . notFollowedBy $ string start <|> string "|]"
   let terminator = choice
-        [ (void . lookAhead . string) start
+        [ void . lookAhead $ string start <|> string "|]"
         , pBol
         , eof ]
   TextBlock . T.pack <$> someTill anyChar terminator
@@ -212,7 +213,20 @@ pArg = do
   let pValue = lexeme $ choice [
         label "JSON string" (String <$> pJsonString),
         label "number" (Number <$> pJsonNumber) ]
-  (Right <$> pValue) <|> (Left <$> pKey)
+  choice [
+    ArgValue        <$> pValue,
+    ArgVariable     <$> pKey,
+    ArgInterpolated <$> pInterpolated ]
+{-# INLINE pArg #-}
+
+pInterpolated :: Parser [Node]
+pInterpolated = do
+  string "[|"
+  delims <- get :: Parser Delimiters
+  nodes <- pMustache (void (symbol "|]"))
+  put delims
+  return nodes
+{-# INLINE pInterpolated #-}
 
 pDelimiter :: Parser String
 pDelimiter = some (satisfy delChar) <?> "delimiter"
