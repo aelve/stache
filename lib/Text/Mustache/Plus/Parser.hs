@@ -228,7 +228,6 @@ pExpr callsAllowed = if callsAllowed then single <|> call else single
       Variable     <$> pKey,
       Interpolated <$> pInterpolated,
       between (symbol "(") (symbol ")") (pExpr True) ]
-{-# INLINE pExpr #-}
 
 -- TODO: allow more things than just strings and numbers
 pLiteral :: Parser Value
