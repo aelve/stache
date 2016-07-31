@@ -98,18 +98,21 @@ spec = describe "parseMustache" $ do
       p "{{#section}}{{=<< >>=}}<</section>><<var>>" `shouldParse`
         [Section (key "section") [], EscapedVar (key "var")]
   context "(+) when parsing an assignment" $ do
+    it "parses assignment with no functions" $
+      p "{{foo = \"test\"}}" `shouldParse`
+        [Assign "foo" (Left (ArgValue (String "test")))]
     it "parses assignment with no arguments" $
       p "{{foo = %some-func}}" `shouldParse`
-        [Assign "foo" ("some-func", [])]
+        [Assign "foo" (Right ("some-func", []))]
     it "parses assignment with two arguments" $
       p "{{foo = %some-func foo \"bar\"}}" `shouldParse`
-        [Assign "foo" ("some-func", [ ArgVariable (key "foo")
-                                    , ArgValue (String "bar")])]
+        [Assign "foo" (Right ("some-func", [ ArgVariable (key "foo")
+                                           , ArgValue (String "bar")]))]
     it "parses numeric arguments" $
       p "{{foo = %some-func 1 -2 3.5e6}}" `shouldParse`
-        [Assign "foo" ("some-func", [ ArgValue (Number 1)
-                                    , ArgValue (Number (-2))
-                                    , ArgValue (Number 3.5e6) ] )]
+        [Assign "foo" (Right ("some-func", [ ArgValue (Number 1)
+                                           , ArgValue (Number (-2))
+                                           , ArgValue (Number 3.5e6)]))]
   context "(+) when parsing interpolated arguments" $ do
     it "parses an empty template" $
       p "{{> p x=[||]}}" `shouldParse`

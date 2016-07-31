@@ -185,55 +185,62 @@ spec = describe "renderMustache" $ do
           (">> text", [])
   context "(+) when assigning a variable" $ do
     let funcs = M.fromList [("head", head . (++ [Null]))]
-    it "works" $ do
-      let nodes = [ Assign "foo" ("head", [ArgValue (String "foo!")])
+    it "works with functions" $ do
+      let nodes = [ Assign "foo" (Right ("head", [ArgValue (String "foo!")]))
                   , EscapedVar (key "foo")
-                  , Assign "foo" ("head", [ArgValue (String "bar!")])
+                  , Assign "foo" (Right ("head", [ArgValue (String "bar!")]))
                   , EscapedVar (key "foo") ]
           template = Template "test" $ M.fromList [("test", nodes)]
       renderMustache funcs template Null `shouldBe`
         ("foo!bar!", [])
+    it "works with arguments" $ do
+      let nodes = [ Assign "foo" (Left (ArgValue (String "foo!")))
+                  , EscapedVar (key "foo")
+                  , Assign "foo" (Left (ArgValue (String "bar!")))
+                  , EscapedVar (key "foo") ]
+          template = Template "test" $ M.fromList [("test", nodes)]
+      renderMustache mempty template Null `shouldBe`
+        ("foo!bar!", [])
     it "doesn't leak variables from partials out" $ do
-      let partial = [ Assign "foo" ("head", [ArgValue (String "bar!")])
+      let partial = [ Assign "foo" (Left (ArgValue (String "bar!")))
                     , EscapedVar (key "foo")
                     , TextBlock "</partial>" ]
-      let nodes = [ Assign "foo" ("head", [ArgValue (String "foo!")])
+      let nodes = [ Assign "foo" (Left (ArgValue (String "foo!")))
                   , Partial "partial" [] Nothing
                   , EscapedVar (key "foo")
                   , TextBlock "</test>"]
           template = Template "test" $
             M.fromList [ ("test", nodes)
                        , ("partial", partial) ]
-      renderMustache funcs template Null `shouldBe`
+      renderMustache mempty template Null `shouldBe`
         ("bar!</partial>foo!</test>", [])
     it "passes variables to partials" $ do
       let partial = [ TextBlock "<partial>"
                     , EscapedVar (key "foo")
-                    , Assign "foo" ("head", [ArgValue (String "bar!")])
+                    , Assign "foo" (Left (ArgValue (String "bar!")))
                     , EscapedVar (key "foo")
                     , TextBlock "</partial>" ]
       let nodes = [ TextBlock "<test>"
-                  , Assign "foo" ("head", [ArgValue (String "foo!")])
+                  , Assign "foo" (Left (ArgValue (String "foo!")))
                   , Partial "partial" [] Nothing
                   , EscapedVar (key "foo")
                   , TextBlock "</test>"]
           template = Template "test" $
             M.fromList [ ("test", nodes)
                        , ("partial", partial) ]
-      renderMustache funcs template Null `shouldBe`
+      renderMustache mempty template Null `shouldBe`
         ("<test><partial>foo!bar!</partial>foo!</test>", [])
     it "gives arguments precedence over variables" $ do
       let partial = [ EscapedVar (key "foo") ]
       let nodes = [
-            Assign "foo" ("head", [ArgValue (String "var")]),
+            Assign "foo" (Left (ArgValue (String "var"))),
             Partial "partial" [("foo", ArgValue (String "arg"))] Nothing ]
           template = Template "test" $
             M.fromList [ ("test", nodes)
                        , ("partial", partial) ]
-      renderMustache funcs template Null `shouldBe`
+      renderMustache mempty template Null `shouldBe`
         ("arg", [])
   context "(+) when rendering an interpolated argument" $ do
-    let funcs = M.fromList [("head", head . (++ [Null]))]
     let partial = [TextBlock "foo:", EscapedVar (key "foo")]
         mkTemplate ns = Template "test" $
           M.fromList [("test", ns), ("partial", partial)]
@@ -241,14 +248,14 @@ spec = describe "renderMustache" $ do
       let inter = [TextBlock "hi", EscapedVar (key "x")]
       let template = mkTemplate [
             Partial "partial" [("foo", ArgInterpolated inter)] Nothing ]
-      renderMustache funcs template (object ["x" .= (5 :: Int)]) `shouldBe`
+      renderMustache mempty template (object ["x" .= (5 :: Int)]) `shouldBe`
         ("foo:hi5", [])
     it "keeps variables inside the interpolated argument" $ do
-      let inter = [Assign "x" ("head", [ArgValue (Number 5)])]
+      let inter = [Assign "x" (Left (ArgValue (Number 5)))]
       let template = mkTemplate [
             Partial "partial" [("foo", ArgInterpolated inter)] Nothing,
             EscapedVar (key "x") ]
-      renderMustache funcs template Null `shouldBe`
+      renderMustache mempty template Null `shouldBe`
         ("foo:", ["missing key: x"])
   context "(+) warnings" $ do
     it "warns about missing partials" $ do
@@ -277,7 +284,7 @@ spec = describe "renderMustache" $ do
       renderMustache mempty template Null `shouldBe`
         ("", ["missing key: bar"])
     it "warns about unknown functions" $ do
-      let nodes = [Assign "foo" ("blah", [])]
+      let nodes = [Assign "foo" (Right ("blah", []))]
       let template = Template "test" $ M.fromList [("test", nodes)]
       renderMustache mempty template Null `shouldBe`
         ("", ["unknown function: blah"])

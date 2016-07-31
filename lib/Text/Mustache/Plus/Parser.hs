@@ -90,10 +90,14 @@ pAssign = do
     vname <- lexeme (label "variable" pVarName)
     symbol "="
     return vname
-  fname <- lexeme (char '%' *> label "function" pVarName)
-  args <- many pArg
+  rightSide <- choice [
+    do fname <- lexeme (char '%' *> label "function" pVarName)
+       args <- many pArg
+       return (Right (fname, args)),
+    do arg <- pArg
+       return (Left arg) ]
   string end
-  return (Assign vname (fname, args))
+  return (Assign vname rightSide)
 {-# INLINE pAssign #-}
 
 pSection :: String -> (Key -> [Node] -> Node) -> Parser Node

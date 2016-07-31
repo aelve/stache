@@ -69,8 +69,9 @@ data Node
   = TextBlock       Text       -- ^ Plain text contained between tags
   | EscapedVar      Key        -- ^ HTML-escaped variable
   | UnescapedVar    Key        -- ^ Unescaped variable
-  | Assign          Text (Text, [Arg])
-    -- ^ Call a function with arguments and assign the result to a variable
+  | Assign          Text (Either Arg (Text, [Arg]))
+    -- ^ Either assign a value to a variable, or call a function with
+    --   some arguments and assign the result to a variable
   | Section         Key [Node] -- ^ Mustache section
   | InvertedSection Key [Node] -- ^ Inverted section
   | Partial         PName [(Text, Arg)] (Maybe Pos)

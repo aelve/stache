@@ -101,7 +101,10 @@ renderNode (EscapedVar k) =
   lookupKeyWarn k >>= outputRaw . escapeHtml . renderValue
 renderNode (UnescapedVar k) =
   lookupKeyWarn k >>= outputRaw . renderValue
-renderNode (Assign k (fname, args)) = do
+renderNode (Assign k (Left arg)) = do
+  val <- resolveArg arg
+  modify (H.insert k val)
+renderNode (Assign k (Right (fname, args))) = do
   mbFunc <- M.lookup fname `liftM` asks rcFunctions
   case mbFunc of
     Nothing -> warn $ "unknown function: " ++ T.unpack fname
