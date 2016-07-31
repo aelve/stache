@@ -55,7 +55,7 @@ library
                       Text.Mustache.Plus.Render
                       Text.Mustache.Plus.Type
   ghc-options:        -Wall -fno-warn-unused-do-bind
-                      -O2 -fsimpl-tick-factor=150
+                      -fsimpl-tick-factor=150
   default-language:   Haskell2010
   hs-source-dirs:     lib
 
@@ -108,5 +108,5 @@ benchmark bench
                     , megaparsec
                     , stache-plus
                     , text
-  ghc-options:        -O2 -Wall -fno-warn-unused-do-bind
+  ghc-options:        -Wall -fno-warn-unused-do-bind
   default-language:   Haskell2010
