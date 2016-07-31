@@ -95,6 +95,39 @@ spec = describe "renderMustache" $ do
           r [Section (key "foo") [EscapedVar (Key [])]]
             (object ["foo" .= ("x" :: Text)])
             `shouldBe` ("x", [])
+    context "when the key is composite" $ do
+      it "looks up the same key when used in the variable" $
+        r [Section (Key ["foo", "bar"]) [EscapedVar (Key ["foo", "bar"])]]
+          (object ["foo" .= object [
+                      "bar" .= ("x" :: Text)]])
+          `shouldBe` ("x", [])
+      it "uses the key as context for an empty key" $
+        r [Section (Key ["foo", "bar"]) [EscapedVar (Key [])]]
+          (object ["foo" .= object [
+                      "bar" .= ("x" :: Text)]])
+          `shouldBe` ("x", [])
+      it "uses the key as context for a non-empty key" $
+        r [Section (Key ["foo", "bar"]) [EscapedVar (key "baz")]]
+          (object ["foo" .= object [
+                      "bar" .= object [
+                          "baz" .= ("x" :: Text)]]])
+          `shouldBe` ("x", [])
+      it "renders a nested section using a composite key" $
+        r [Section (Key ["foo", "bar"]) [
+              Section (Key ["baz", "quix"]) [
+                  EscapedVar (Key ["foo", "bar", "baz", "quix", "blah"])]]]
+          (object ["foo" .= object [
+                      "bar" .= object [
+                          "baz" .= object [
+                              "quix" .= object [
+                                  "blah" .= ("x" :: Text)]]]]])
+          `shouldBe` ("x", [])
+      it "doesn't find foo.bar when looking up bar in a foo.bar section" $
+        r [Section (Key ["foo", "bar"]) [
+              EscapedVar (key "bar") ]]
+          (object ["foo" .= object [
+                      "bar" .= ("x" :: Text)]])
+          `shouldBe` ("", ["missing key: bar"])
   context "when rendering an inverted section" $ do
     let nodes = [InvertedSection (key "foo") [TextBlock "Here!"]]
     context "when the key is not present" $

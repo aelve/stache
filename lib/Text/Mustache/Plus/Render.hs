@@ -17,9 +17,7 @@ where
 import Data.Functor.Identity
 import Control.Monad.RWS.Lazy
 import Data.Aeson
-import Data.Foldable (asum)
 import Control.Applicative
-import Data.List (tails)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.DList (DList)
 import qualified Data.DList as DL
@@ -56,8 +54,6 @@ data RenderContext m = RenderContext
     rcIndent    :: Maybe Pos
     -- | The context stack
   , rcContext   :: NonEmpty Value
-    -- | Prefix accumulated by entering sections
-  , rcPrefix    :: Key
     -- | The template to render
   , rcTemplate  :: Template
     -- | Functions that can be called
@@ -115,14 +111,13 @@ renderNode (Assign k (fname, args)) = do
       modify (H.insert k val)
 renderNode (Section k ns) = do
   val <- lookupKeyNone k
-  enterSection k $
-    unless (isBlank val) $
-      case val of
-        Array xs ->
-          forM_ (V.toList xs) $ \x ->
-            addToLocalContext x (renderMany renderNode ns)
-        _ ->
-          addToLocalContext val (renderMany renderNode ns)
+  unless (isBlank val) $
+    case val of
+      Array xs ->
+        forM_ (V.toList xs) $ \x ->
+          addToLocalContext x (renderMany renderNode ns)
+      _ ->
+        addToLocalContext val (renderMany renderNode ns)
 renderNode (InvertedSection k ns) = do
   val <- lookupKeyNone k
   when (isBlank val) $
@@ -161,7 +156,6 @@ runRender m f t v = (output . snd) `liftM` evalRWST m rc mempty
     rc = RenderContext
       { rcIndent    = Nothing
       , rcContext   = v :| []
-      , rcPrefix    = mempty
       , rcTemplate  = t
       , rcFunctions = f
       , rcLastNode  = True }
@@ -210,7 +204,6 @@ renderPartial pname i f = local u $ do
   where
     u rc = rc
       { rcIndent   = addIndents i (rcIndent rc)
-      , rcPrefix   = mempty
       , rcTemplate = (rcTemplate rc) { templateActual = pname }
       , rcLastNode = True }
 {-# INLINE renderPartial #-}
@@ -270,30 +263,37 @@ lookupKeyWarn k = do
 lookupKey :: Monad m => Key -> Render m (Maybe Value)
 lookupKey (Key []) = (Just . NE.head) `liftM` asks rcContext
 lookupKey k = do
-  v <- asks rcContext
-  p <- asks rcPrefix
+  stack <- asks rcContext
   vars <- get
   return $ case k of
-    Key [x] -> H.lookup x vars <|>
-               asum [ asum (simpleLookup (Key prefix <> k) <$> v)
-                    | prefix <- reverse (tails (unKey p)) ]
-    Key _   -> asum (simpleLookup (p <> k) <$> v)
+    Key [x] -> H.lookup x vars <|> lookupInStack k stack
+    Key _   -> lookupInStack k stack
+
+-- This is needed to implement https://github.com/mustache/spec/pull/48
+data LookupResult
+  = Found Value
+  | MadeProgress
+  | MadeNoProgress
+
+lookupInStack :: Key -> NonEmpty Value -> Maybe Value
+lookupInStack k vs =
+  case simpleLookup k (NE.head vs) of
+    Found x        -> Just x
+    MadeProgress   -> Nothing
+    MadeNoProgress -> lookupInStack k =<< NE.nonEmpty (NE.tail vs)
 
 -- | Lookup a 'Value' by traversing another 'Value' using given 'Key' as
 -- “path”.
-
-simpleLookup :: Key -> Value -> Maybe Value
-simpleLookup (Key [])     obj        = return obj
-simpleLookup (Key (k:ks)) (Object m) = H.lookup k m >>= simpleLookup (Key ks)
-simpleLookup _            _          = Nothing
+simpleLookup :: Key -> Value -> LookupResult
+simpleLookup (Key []) v = Found v
+simpleLookup (Key (k:ks)) (Object m) =
+  case H.lookup k m of
+    Nothing -> MadeNoProgress
+    Just v  -> case simpleLookup (Key ks) v of
+      MadeNoProgress -> MadeProgress
+      other          -> other
+simpleLookup _ _ = MadeNoProgress
 {-# INLINE simpleLookup #-}
-
--- | Enter the section by adding given 'Key' prefix to current prefix.
-
-enterSection :: Monad m => Key -> Render m a -> Render m a
-enterSection p =
-  local (\rc -> rc { rcPrefix = p <> rcPrefix rc })
-{-# INLINE enterSection #-}
 
 -- | Add new value on the top of context. The new value has the highest
 -- priority when lookup takes place.
