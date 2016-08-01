@@ -42,6 +42,10 @@ spec = describe "renderMustache" $ do
     r [UnescapedExpr (Variable (key "foo"))]
       (object ["foo" .= ("<html>&\"something\"</html>" :: Text)])
       `shouldBe` ("<html>&\"something\"</html>", [])
+  it "(+) escapes a single quote" $
+    r [EscapedExpr (Variable (key "foo"))]
+      (object ["foo" .= ("'" :: Text)])
+      `shouldBe` ("&#39;", [])
   context "when rendering a section" $ do
     let nodes = [Section (key "foo") [
                     UnescapedExpr (Variable (key "bar")), TextBlock "*"]]

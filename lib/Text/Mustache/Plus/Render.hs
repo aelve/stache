@@ -351,6 +351,7 @@ renderValue value        = (T.decodeUtf8 . B.toStrict . encode) value
 escapeHtml :: Text -> Text
 escapeHtml txt = foldr (uncurry T.replace) txt
   [ ("\"", "&quot;")
+  , ("'",  "&#39;")
   , ("<",  "&lt;")
   , (">",  "&gt;")
   , ("&",  "&amp;") ]
