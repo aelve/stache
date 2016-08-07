@@ -28,7 +28,7 @@ source-repository head
   location:           https://github.com/aelve/stache-plus.git
 
 library
-  build-depends:      aeson            >= 0.11 && < 0.12
+  build-depends:      aeson            >= 0.11 && < 1.1
                     , base             >= 4.7  && < 5
                     , bytestring       >= 0.10 && < 0.11
                     , containers       >= 0.5  && < 0.6
