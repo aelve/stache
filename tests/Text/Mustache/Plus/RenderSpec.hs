@@ -192,6 +192,17 @@ spec = describe "renderMustache" $ do
         let env = object ["foo" .= ("bar" :: Text)]
         renderMustache mempty template env `shouldBe`
           (">> text", [])
+  context "when using dotted keys inside a section" $
+    it "it should be equivalent to access via one more section" $
+      r [ Section (key "things")
+          [ EscapedExpr (Variable (key "atts.color"))
+          , TextBlock " == "
+          , Section (key "atts") [EscapedExpr (Variable (key "color"))] ] ]
+        (object ["things" .=
+                 [object
+                  ["atts" .=
+                   object ["color" .= ("blue" :: Text)]]]])
+        `shouldBe` ("blue == blue", [])
   context "(+) when assigning a variable" $ do
     let funcs = M.fromList [("head", head . (++ [Null]))]
     it "works with functions" $ do
