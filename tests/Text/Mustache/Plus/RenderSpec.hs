@@ -167,7 +167,7 @@ spec = describe "renderMustache" $ do
           r nodes (object ["foo" .= [True]])
             `shouldBe` ("", [])
   context "when rendering a partial" $ do
-    let nodes = [ Partial "partial" [] (Just $ unsafePos 4)
+    let nodes = [ Partial "partial" [] (Just $ mkPos 4)
                 , TextBlock "*" ]
     it "skips missing partial" $
       fst (r nodes Null) `shouldBe` "   *"

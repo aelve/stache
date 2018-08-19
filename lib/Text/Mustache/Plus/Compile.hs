@@ -17,14 +17,15 @@ where
 
 import Control.Monad.Catch (MonadThrow (..))
 import Control.Monad.Except
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import System.Directory
 import Text.Megaparsec
 import Text.Mustache.Plus.Parser
 import Text.Mustache.Plus.Type
+import Data.Void
 import qualified Data.Map          as M
 import qualified Data.Text         as T
-import qualified Data.Text.Lazy.IO as TL
+import qualified Data.Text.IO      as T
 import qualified System.FilePath   as F
 
 #if !MIN_VERSION_base(4,8,0)
@@ -60,7 +61,7 @@ compileMustacheFile :: (MonadIO m, MonadThrow m)
   => FilePath          -- ^ Location of the file
   -> m Template
 compileMustacheFile path =
-  liftIO (TL.readFile path) >>= withException . compile
+  liftIO (T.readFile path) >>= withException . compile
   where
     pname = pathToPName path
     compile = fmap (Template pname . M.singleton pname) . parseMustache path
@@ -71,7 +72,7 @@ compileMustacheFile path =
 compileMustacheText
   :: PName             -- ^ How to name the template?
   -> Text              -- ^ The template to compile
-  -> Either (ParseError Char Dec) Template -- ^ The result
+  -> Either (ParseError Char Void) Template -- ^ The result
 compileMustacheText pname txt =
   Template pname . M.singleton pname <$> parseMustache "" txt
 
@@ -96,7 +97,7 @@ pathToPName = PName . T.pack . F.takeBaseName
 -- inside 'Right'.
 
 withException :: MonadThrow m
-  => Either (ParseError Char Dec) Template -- ^ Value to process
+  => Either (ParseError Char Void) Template -- ^ Value to process
   -> m Template        -- ^ The result
 withException = either (throwM . MustacheException) return
 {-# INLINE withException #-}

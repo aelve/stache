@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -9,18 +8,15 @@ where
 
 import Test.Hspec
 
-#if MIN_VERSION_template_haskell(2,11,0)
 import Data.Semigroup ((<>))
 import Text.Mustache.Plus.Type
 import qualified Data.Map as M
 import qualified Text.Mustache.Plus.Compile.TH as TH
-#endif
 
 main :: IO ()
 main = hspec spec
 
 spec :: Spec
-#if MIN_VERSION_template_haskell(2,11,0)
 spec = do
   describe "compileMustacheText" $
     it "compiles template from text at compile time" $
@@ -42,6 +38,3 @@ fooTemplate = Template "foo" $
 barTemplate :: Template
 barTemplate = Template "bar" $
   M.singleton "bar" [TextBlock "And this is the ‘bar’.\n"]
-#else
-spec = return ()
-#endif

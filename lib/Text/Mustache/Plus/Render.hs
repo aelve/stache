@@ -32,8 +32,8 @@ import qualified Data.Map               as M
 import qualified Data.Semigroup         as S
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as T
-import qualified Data.Text.Lazy         as TL
 import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text.Lazy         as TL
 import qualified Data.Vector            as V
 
 ----------------------------------------------------------------------------
@@ -83,13 +83,13 @@ warn w = tell (RenderOutput mempty (DL.singleton w))
 -- for interpolation.
 
 renderMustache
-  :: M.Map Text Function -> Template -> Value -> (TL.Text, [String])
+  :: M.Map Text Function -> Template -> Value -> (Text, [String])
 renderMustache fs t v =
   runIdentity $ renderMustacheM (fmap (fmap Identity) fs) t v
 
 renderMustacheM
   :: Monad m
-  => M.Map Text (FunctionM m) -> Template -> Value -> m (TL.Text, [String])
+  => M.Map Text (FunctionM m) -> Template -> Value -> m (Text, [String])
 renderMustacheM fs t v =
   runRender (renderPartial (templateActual t) Nothing renderNode) fs t v
 
@@ -144,10 +144,10 @@ runRender
   -> M.Map Text (FunctionM m)
   -> Template
   -> Value
-  -> m (TL.Text, [String])
+  -> m (Text, [String])
 runRender m f t v = (output . snd) `liftM` evalRWST m rc mempty
   where
-    output (RenderOutput a b) = (B.toLazyText a, DL.toList b)
+    output (RenderOutput a b) = (TL.toStrict (B.toLazyText a), DL.toList b)
     rc = RenderContext
       { rcIndent    = Nothing
       , rcContext   = v :| []

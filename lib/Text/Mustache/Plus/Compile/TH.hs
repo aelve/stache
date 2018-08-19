@@ -21,12 +21,13 @@ module Text.Mustache.Plus.Compile.TH
 where
 
 import Control.Monad.Catch (try)
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Data.Typeable (cast)
 import Language.Haskell.TH hiding (Dec)
 import Language.Haskell.TH.Syntax (lift)
 import Text.Megaparsec hiding (try)
 import Text.Mustache.Plus.Type
+import Data.Void
 import qualified Data.Text             as T
 import qualified Text.Mustache.Plus.Compile as C
 
@@ -80,7 +81,7 @@ compileMustacheText pname text =
 -- | Given an 'Either' result return 'Right' and signal pretty-printed error
 -- if we have a 'Left'.
 
-handleEither :: Either (ParseError Char Dec) Template -> Q Exp
+handleEither :: Either (ParseError Char Void) Template -> Q Exp
 handleEither val =
   case val of
     Left err -> fail (parseErrorPretty err)

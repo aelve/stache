@@ -34,6 +34,7 @@ import Data.String (IsString (..))
 import Data.List (intercalate)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
+import Data.Void
 import GHC.Generics
 import Text.Megaparsec
 import qualified Data.Map  as M
@@ -123,7 +124,7 @@ type FunctionM m = [Value] -> m Value
 
 -- | Exception that is thrown when parsing of a template has failed.
 
-data MustacheException = MustacheException (ParseError Char Dec)
+data MustacheException = MustacheException (ParseError Char Void)
   deriving (Eq, Show, Typeable, Generic)
 
 #if MIN_VERSION_base(4,8,0)

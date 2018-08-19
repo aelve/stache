@@ -17,7 +17,6 @@ import Text.Mustache.Plus
 import Text.Mustache.Plus.Parser
 import qualified Data.Map       as M
 import qualified Data.Text      as T
-import qualified Data.Text.Lazy as TL
 
 -- | Representation of information contained in a Mustache spec file.
 
@@ -38,9 +37,9 @@ data Test = Test
   { testName     :: String
   , testDesc     :: String
   , testData     :: Value
-  , testTemplate :: TL.Text
-  , testExpected :: TL.Text
-  , testPartials :: Map Text TL.Text
+  , testTemplate :: Text
+  , testExpected :: Text
+  , testPartials :: Map Text Text
   }
 
 instance FromJSON Test where
