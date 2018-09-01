@@ -66,11 +66,13 @@ data RenderOutput = RenderOutput {
   roBuilder  :: B.Builder,
   roWarnings :: DList String }
 
-instance Monoid RenderOutput where
-  mempty = RenderOutput mempty mempty
-  mappend a b = RenderOutput {
+instance Semigroup RenderOutput where
+  (<>) a b = RenderOutput {
     roBuilder  = roBuilder a <> roBuilder b,
     roWarnings = roWarnings a <> roWarnings b }
+
+instance Monoid RenderOutput where
+  mempty = RenderOutput mempty mempty
 
 warn :: Monad m => String -> Render m ()
 warn w = tell (RenderOutput mempty (DL.singleton w))
