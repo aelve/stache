@@ -31,7 +31,7 @@ library
   build-depends:      aeson            >= 0.11 && < 1.5
                     , base             >= 4.7  && < 5
                     , bytestring       >= 0.10 && < 0.11
-                    , containers       >= 0.5  && < 0.6
+                    , containers       >= 0.5  && < 0.7
                     , deepseq          >= 1.4  && < 1.5
                     , directory        >= 1.2  && < 1.4
                     , dlist
@@ -40,7 +40,7 @@ library
                     , megaparsec       == 6.*
                     , mtl              >= 2.1  && < 3.0
                     , scientific
-                    , template-haskell >= 2.11 && < 2.14
+                    , template-haskell >= 2.11 && < 2.15
                     , text             >= 1.2  && < 1.3
                     , unordered-containers >= 0.2.5 && < 0.3
                     , vector           >= 0.11 && < 0.13

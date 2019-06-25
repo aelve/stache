@@ -1,4 +1,11 @@
-resolver: lts-12.4
+resolver: lts-13.26
 
 packages:
 - '.'
+
+extra-deps:
+- megaparsec-6.5.0
+- hspec-megaparsec-1.0.0
+- yaml-0.8.32
+
+allow-newer: true
